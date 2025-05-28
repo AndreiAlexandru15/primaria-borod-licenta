@@ -1,45 +1,113 @@
+"use client"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import axios from "axios"
 
 export function LoginForm({
   className,
   ...props
 }) {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  })
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const router = useRouter()
+
+  const handleInputChange = (e) => {
+    const { id, value } = e.target
+    setFormData(prev => ({      ...prev,
+      [id]: value
+    }))
+  }
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
+
+    try {
+      const response = await axios.post('/api/auth/login', {
+        email: formData.email,
+        parola: formData.password
+      })
+
+      if (response.status === 200) {
+        // Login successful
+        console.log('Login reușit:', response.data)
+        router.push('/dashboard')
+      }
+    } catch (error) {
+      console.error('Eroare login:', error)
+      if (error.response?.data?.error) {
+        setError(error.response.data.error)
+      } else if (error.response?.status === 401) {
+        setError('Credențiale invalide')
+      } else {
+        setError('Eroare de conexiune. Încearcă din nou.')
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     (<div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8">
+          <form className="p-6 md:p-8" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col items-center text-center">
-                <h1 className="text-2xl font-bold">Welcome back</h1>
+                <h1 className="text-2xl font-bold">Bine ai revenit</h1>
                 <p className="text-muted-foreground text-balance">
-                  Login to your Acme Inc account
+                  Autentificare în contul E-Registratură
                 </p>
               </div>
+              
+              {error && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                  {error}
+                </div>
+              )}
+              
               <div className="grid gap-3">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="m@example.com" required />
-              </div>
-              <div className="grid gap-3">
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="m@example.com" 
+                  required 
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  disabled={isLoading}
+                />
+              </div>              <div className="grid gap-3">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Parolă</Label>
                   <a href="#" className="ml-auto text-sm underline-offset-2 hover:underline">
-                    Forgot your password?
+                    Ai uitat parola?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
-              </div>
-              <Button type="submit" className="w-full">
-                Login
-              </Button>
-              <div
+                <Input 
+                  id="password" 
+                  type="password" 
+                  required 
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  disabled={isLoading}
+                />
+              </div>              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Se autentifică...' : 'Autentificare'}
+              </Button>              <div
                 className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                 <span className="bg-card text-muted-foreground relative z-10 px-2">
-                  Or continue with
+                  Sau continuă cu
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-4">
@@ -67,11 +135,10 @@ export function LoginForm({
                   </svg>
                   <span className="sr-only">Login with Meta</span>
                 </Button>
-              </div>
-              <div className="text-center text-sm">
-                Don&apos;t have an account?{" "}
+              </div>              <div className="text-center text-sm">
+                Nu ai un cont?{" "}
                 <a href="#" className="underline underline-offset-4">
-                  Sign up
+                  Înregistrează-te
                 </a>
               </div>
             </div>
@@ -83,11 +150,10 @@ export function LoginForm({
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale" />
           </div>
         </CardContent>
-      </Card>
-      <div
+      </Card>      <div
         className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-        By clicking continue, you agree to our <a href="#">Terms of Service</a>{" "}
-        and <a href="#">Privacy Policy</a>.
+        Prin continuare, accepți <a href="#">Termenii și Condițiile</a>{" "}
+        și <a href="#">Politica de Confidențialitate</a>.
       </div>
     </div>)
   );

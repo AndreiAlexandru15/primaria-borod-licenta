@@ -84,7 +84,7 @@ model Primaria {
   utilizatori     Utilizator[]
   departamente    Departament[]
   documente       Document[]
-  fonduriArhiva   FondArhiva[] @map("fonduri_arhiva")
+  fonduriArhiva   FondArhiva[]
 
   @@map("primarii")
 }
@@ -133,7 +133,7 @@ model FondArhiva {
 
   // Relații
   primaria              Primaria @relation(fields: [primariaId], references: [id])
-  diagrameOrganizare    DiagramaOrganizare[] @map("diagrame_organizare")
+  diagrameOrganizare    DiagramaOrganizare[]
   documente             Document[]
 
   @@map("fonduri_arhiva")
@@ -249,7 +249,7 @@ model Document {
   fisiere             Fisier[]
   auditLog            AuditLog[]
   istoric             IstoricDocument[]
-  aiProcesari         AIProcesare[] @map("ai_procesari")
+  aiProcesari         AIProcesare[]
 
   @@unique([primariaId, numarInregistrare, dataInregistrare])
   @@map("documente")
