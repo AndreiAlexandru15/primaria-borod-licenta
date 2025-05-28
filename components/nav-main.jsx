@@ -22,9 +22,8 @@ import {
 export function NavMain({
   items
 }) {
-  return (
-    (<SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+  return (    (<SidebarGroup>
+      <SidebarGroupLabel>Navigare Principală</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <Collapsible key={item.title} asChild defaultOpen={item.isActive}>

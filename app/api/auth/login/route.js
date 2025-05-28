@@ -15,9 +15,14 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request) {
   try {
     const { email, parola } = await request.json()
+    
+    // Debug login
+    console.log('🔍 LOGIN DEBUG - Email:', email)
+    console.log('🔍 LOGIN DEBUG - Parola length:', parola?.length)
 
     // Validare input
     if (!email || !parola) {
+      console.log('❌ LOGIN DEBUG - Email sau parola lipsesc')
       return NextResponse.json(
         { error: 'Email și parola sunt obligatorii' },
         { status: 400 }

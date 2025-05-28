@@ -1,6 +1,6 @@
 "use client"
 
-import { Folder, MoreHorizontal, Share, Trash2 } from "lucide-react";
+import { FolderOpen, MoreHorizontal, FileText, Users, Settings } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -26,7 +26,7 @@ export function NavProjects({
 
   return (
     (<SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Projects</SidebarGroupLabel>
+      <SidebarGroupLabel>Departamente</SidebarGroupLabel>
       <SidebarMenu>
         {projects.map((item) => (
           <SidebarMenuItem key={item.name}>
@@ -40,7 +40,7 @@ export function NavProjects({
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction showOnHover>
                   <MoreHorizontal />
-                  <span className="sr-only">More</span>
+                  <span className="sr-only">Opțiuni</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -48,26 +48,30 @@ export function NavProjects({
                 side={isMobile ? "bottom" : "right"}
                 align={isMobile ? "end" : "start"}>
                 <DropdownMenuItem>
-                  <Folder className="text-muted-foreground" />
-                  <span>View Project</span>
+                  <FolderOpen className="text-muted-foreground" />
+                  <span>Vezi Registrele</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Share className="text-muted-foreground" />
-                  <span>Share Project</span>
+                  <FileText className="text-muted-foreground" />
+                  <span>Documente Noi</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Users className="text-muted-foreground" />
+                  <span>Gestionează Echipa</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
-                  <Trash2 className="text-muted-foreground" />
-                  <span>Delete Project</span>
+                  <Settings className="text-muted-foreground" />
+                  <span>Configurări</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
         ))}
         <SidebarMenuItem>
-          <SidebarMenuButton>
+          <SidebarMenuButton className="text-sidebar-foreground/70">
             <MoreHorizontal />
-            <span>More</span>
+            <span>Vezi toate departamentele</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

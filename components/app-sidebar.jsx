@@ -2,16 +2,18 @@
 
 import * as React from "react"
 import {
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
+  Archive,
+  BarChart3,
+  Building2,
+  FileText,
+  FolderOpen,
+  Home,
   LifeBuoy,
-  Map,
-  PieChart,
-  Send,
+  LogOut,
   Settings2,
-  SquareTerminal,
+  Users,
+  UserCheck,
+  Command
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -30,124 +32,120 @@ import {
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: "Administrator",
+    email: "admin@sector1.ro",
+    avatar: "/avatars/admin.jpg",
   },
   navMain: [
     {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: Home,
       isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
     },
     {
-      title: "Models",
-      url: "#",
-      icon: Bot,
+      title: "E-Registratură",
+      url: "/dashboard/e-registratura",
+      icon: FolderOpen,
       items: [
         {
-          title: "Genesis",
-          url: "#",
+          title: "Departamente",
+          url: "/dashboard/e-registratura",
         },
         {
-          title: "Explorer",
-          url: "#",
+          title: "Registre",
+          url: "/dashboard/e-registratura/registre",
         },
         {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
+          title: "Căutare Avansată",
+          url: "/dashboard/e-registratura/cautare",
+        }
+      ]
     },
     {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
+      title: "Documente",
+      url: "/dashboard/documente",
+      icon: FileText,
       items: [
         {
-          title: "Introduction",
-          url: "#",
+          title: "Document Nou",
+          url: "/dashboard/documente/nou",
         },
         {
-          title: "Get Started",
-          url: "#",
+          title: "Toate Documentele",
+          url: "/dashboard/documente",
         },
         {
-          title: "Tutorials",
-          url: "#",
+          title: "În Așteptare",
+          url: "/dashboard/documente/pending",
         },
         {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
+          title: "Finalizate",
+          url: "/dashboard/documente/completed",
+        }
+      ]
     },
     {
-      title: "Settings",
-      url: "#",
+      title: "Administrare",
+      url: "/dashboard/admin",
       icon: Settings2,
       items: [
         {
-          title: "General",
-          url: "#",
+          title: "Utilizatori",
+          url: "/dashboard/admin/utilizatori",
         },
         {
-          title: "Team",
-          url: "#",
+          title: "Departamente",
+          url: "/dashboard/admin/departamente",
         },
         {
-          title: "Billing",
-          url: "#",
+          title: "Roluri & Permisiuni",
+          url: "/dashboard/admin/roluri",
         },
         {
-          title: "Limits",
-          url: "#",
-        },
-      ],
+          title: "Configurări",
+          url: "/dashboard/admin/configurari",
+        }
+      ]
     },
   ],
   navSecondary: [
     {
-      title: "Support",
-      url: "#",
-      icon: LifeBuoy,
+      title: "Arhivă",
+      url: "/dashboard/arhiva",
+      icon: Archive,
     },
     {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
+      title: "Rapoarte",
+      url: "/dashboard/rapoarte",
+      icon: BarChart3,
+    },
+    {
+      title: "Suport",
+      url: "/dashboard/suport",
+      icon: LifeBuoy,
     },
   ],
   projects: [
     {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
+      name: "Urbanism",
+      url: "/dashboard/e-registratura/1",
+      icon: Building2,
     },
     {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
+      name: "Financiar",
+      url: "/dashboard/e-registratura/2",
+      icon: BarChart3,
     },
     {
-      name: "Travel",
-      url: "#",
-      icon: Map,
+      name: "Resurse Umane",
+      url: "/dashboard/e-registratura/3",
+      icon: Users,
+    },
+    {
+      name: "Juridic",
+      url: "/dashboard/e-registratura/4",
+      icon: UserCheck,
     },
   ],
 }
@@ -167,8 +165,8 @@ export function AppSidebar({
                   <Command className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Acme Inc</span>
-                  <span className="truncate text-xs">Enterprise</span>
+                  <span className="truncate font-medium">E-Registratura</span>
+                  <span className="truncate text-xs">Primăria Borod</span>
                 </div>
               </a>
             </SidebarMenuButton>
