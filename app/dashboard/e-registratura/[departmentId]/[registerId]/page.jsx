@@ -23,6 +23,7 @@ import { Plus, Download } from "lucide-react"
 import { ListaInregistrari } from "@/components/lista-inregistrari"
 import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
 import React, { useRef } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function RegistruInregistrariPage({ params }) {
   const { departmentId, registerId } = React.use(params)
@@ -64,17 +65,16 @@ export default function RegistruInregistrariPage({ params }) {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>            <div className="flex gap-2 items-center">
-              <select
-                value={exportFormat}
-                onChange={e => setExportFormat(e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
-                style={{ height: 36 }}
-                aria-label="Format export"
-              >
-                <option value="excel">Excel (.xlsx)</option>
-                <option value="csv">CSV (.csv)</option>
-                <option value="pdf">PDF (.pdf)</option>
-              </select>
+              <Select value={exportFormat} onValueChange={setExportFormat}>
+                <SelectTrigger className="">
+                  <SelectValue placeholder="Format export" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="excel">Excel (.xlsx)</SelectItem>
+                  <SelectItem value="csv">CSV (.csv)</SelectItem>
+                  <SelectItem value="pdf">PDF (.pdf)</SelectItem>
+                </SelectContent>
+              </Select>
               <Button variant="outline" onClick={() => listaRef.current?.handleExport && listaRef.current.handleExport(exportFormat)}>
                 <Download className="h-4 w-4 mr-2" />
                 Export

@@ -76,8 +76,8 @@ export async function PUT(request, { params }) {
       urgent, 
       confidential,
       status,
-      documenteIds = [] // Noi documente de atașat
-      numarDocument // Nou
+      documenteIds = [], // Noi documente de atașat
+      numarDocument, // Nou
     } = body
 
     // Verifică dacă înregistrarea există
