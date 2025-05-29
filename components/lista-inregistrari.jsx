@@ -20,14 +20,27 @@ import {
   AlertTriangle,
   Building,
   Plus,
-  Download
+  Download,
+  Eye,
+  Edit,
+  Trash2,
+  MoreHorizontal
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DataTable } from "@/components/data-table"
 import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
+import { EditeazaInregistrareModal } from "@/components/editeaza-inregistrare-modal"
+import { VizualizeazaInregistrareModal } from "@/components/vizualizeaza-inregistrare-modal"
+import { ConfirmDeleteModal } from "@/components/confirm-delete-modal"
 import axios from "axios"
 
 // Definirea coloanelor pentru DataTable
-const getColumns = (formatDate, getStatusBadge) => [
+const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
   {
     accessorKey: "numarInregistrare",
     header: "Nr. Înregistrare",
@@ -105,8 +118,7 @@ const getColumns = (formatDate, getStatusBadge) => [
         )}
       </div>
     ),
-  },
-  {
+  },  {
     accessorKey: "confidentialitate",
     header: "Confidențialitate",
     cell: ({ row }) => (
@@ -121,11 +133,53 @@ const getColumns = (formatDate, getStatusBadge) => [
     header: "Status",
     cell: ({ row }) => getStatusBadge(row.original),
   },
+  {
+    id: "actions",
+    header: "Acțiuni",
+    cell: ({ row }) => {
+      const inregistrare = row.original
+      
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Deschide meniu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onView(inregistrare)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Vizualizează
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(inregistrare)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Editează
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => onDelete(inregistrare)}
+              className="text-red-600"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Șterge
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+  },
 ]
 
 export const ListaInregistrari = forwardRef(function ListaInregistrari({ departmentId, registerId }, ref) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  
+  // State pentru modaluri
+  const [viewModalOpen, setViewModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [selectedInregistrare, setSelectedInregistrare] = useState(null)
+  
   // Query pentru înregistrări din registru
   const { 
     data: inregistrariData, 
@@ -195,7 +249,48 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
       day: '2-digit'
     })
   }
-  
+
+  // Funcții pentru acțiuni
+  const handleView = (inregistrare) => {
+    setSelectedInregistrare(inregistrare)
+    setViewModalOpen(true)
+  }
+
+  const handleEdit = (inregistrare) => {
+    setSelectedInregistrare(inregistrare)
+    setEditModalOpen(true)
+  }
+
+  const handleDelete = (inregistrare) => {
+    setSelectedInregistrare(inregistrare)
+    setDeleteModalOpen(true)
+  }
+
+  // Mutation pentru ștergerea înregistrării
+  const deleteInregistrareMutation = useMutation({
+    mutationFn: async (id) => {
+      const response = await axios.delete(`/api/inregistrari/${id}`)
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la ștergerea înregistrării')
+      }
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['inregistrari'])
+      setDeleteModalOpen(false)
+      setSelectedInregistrare(null)
+    },
+    onError: (error) => {
+      console.error('Eroare la ștergerea înregistrării:', error)
+    }
+  })
+
+  const confirmDelete = () => {
+    if (selectedInregistrare) {
+      deleteInregistrareMutation.mutate(selectedInregistrare.id)
+    }
+  }
+
   const isLoading = isLoadingInregistrari || isLoadingRegistru || isLoadingDepartament
   const inregistrari = inregistrariData?.inregistrari || []
   
@@ -242,7 +337,11 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
     return inregistrari
   }, [inregistrari])
 
-  const columns = useMemo(() => getColumns(formatDate, getStatusBadge), [])
+  // Folosește getColumns cu acțiuni
+  const columns = useMemo(
+    () => getColumns(formatDate, getStatusBadge, handleView, handleEdit, handleDelete),
+    [formatDate, getStatusBadge]
+  )
 
   if (isLoading) {
     return (
@@ -330,12 +429,40 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
               />
             </div>
           </CardContent>
-        </Card>
-      ) : (
+        </Card>      ) : (
         <div>
-          <DataTable data={tableData} columns={getColumns(formatDate, getStatusBadge)} />
+          <DataTable data={tableData} columns={columns} />
         </div>
       )}
+
+      {/* Modaluri */}
+      <VizualizeazaInregistrareModal
+        isOpen={viewModalOpen}
+        onOpenChange={setViewModalOpen}
+        inregistrare={selectedInregistrare}
+      />
+
+      <EditeazaInregistrareModal
+        isOpen={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        inregistrare={selectedInregistrare}
+        departamentId={departmentId}
+        registruId={registerId}
+        onSuccess={() => {
+          queryClient.invalidateQueries(['inregistrari'])
+          setEditModalOpen(false)
+          setSelectedInregistrare(null)
+        }}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={deleteModalOpen}
+        onOpenChange={setDeleteModalOpen}
+        title="Șterge înregistrarea"
+        description={`Ești sigur că vrei să ștergi înregistrarea #${selectedInregistrare?.numarInregistrare}? Această acțiune nu poate fi anulată.`}
+        onConfirm={confirmDelete}
+        isLoading={deleteInregistrareMutation.isPending}
+      />
     </div>
   )
 })
