@@ -214,9 +214,50 @@ model Registru {
   // Relații
   departament  Departament @relation(fields: [departamentId], references: [id])
   documente    Document[]
+  inregistrari Inregistrare[]
 
   @@unique([departamentId, cod])
   @@map("registre")
+}
+
+// Înregistrări în Registratură
+model Inregistrare {
+  id                  String @id @default(uuid())
+  registruId          String @map("registru_id")
+  numarInregistrare   String @map("numar_inregistrare")
+  dataInregistrare    DateTime @default(now()) @map("data_inregistrare") @db.Date
+  expeditor           String?
+  destinatar          String?
+  obiect              String
+  observatii          String?
+  urgent              Boolean @default(false)
+  confidential        Boolean @default(false)
+  status              String @default("activa") // activa, finalizata, anulata
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relații
+  registru            Registru @relation(fields: [registruId], references: [id])
+  documente           InregistrareDocument[]
+
+  @@unique([registruId, numarInregistrare, dataInregistrare], name: "unique_registration")
+  @@map("inregistrari")
+}
+
+// Tabelă de joncțiune între Înregistrări și Documente
+model InregistrareDocument {
+  id               String @id @default(uuid())
+  inregistrareId   String @map("inregistrare_id")
+  documentId       String @map("document_id")
+  ordinea          Int @default(1)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relații
+  inregistrare     Inregistrare @relation(fields: [inregistrareId], references: [id], onDelete: Cascade)
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([inregistrareId, documentId])
+  @@map("inregistrare_documente")
 }
 
 // Categorii de documente
@@ -241,10 +282,10 @@ model CategorieDocument {
 model Document {
   id                  String @id @default(uuid())
   primariaId          String @map("primaria_id")
-  departamentId       String @map("departament_id")
-  registruId          String @map("registru_id")
+  departamentId       String? @map("departament_id") // Optional pentru documente neinregistrate
+  registruId          String? @map("registru_id") // Optional pentru documente neinregistrate
   fondArhivaId        String? @map("fond_arhiva_id")
-  numarInregistrare   String @map("numar_inregistrare")
+  numarInregistrare   String? @map("numar_inregistrare") // Optional pentru documente neinregistrate
   dataInregistrare    DateTime @map("data_inregistrare") @db.Date
   expeditor           String?
   destinatar          String?
@@ -265,16 +306,17 @@ model Document {
 
   // Relații
   primaria            Primaria @relation(fields: [primariaId], references: [id])
-  departament         Departament @relation(fields: [departamentId], references: [id])
-  registru            Registru @relation(fields: [registruId], references: [id])
+  departament         Departament? @relation(fields: [departamentId], references: [id])
+  registru            Registru? @relation(fields: [registruId], references: [id])
   fondArhiva          FondArhiva? @relation(fields: [fondArhivaId], references: [id])
   categorie           CategorieDocument? @relation(fields: [categorieId], references: [id])
   fisiere             Fisier[]
   auditLog            AuditLog[]
   istoric             IstoricDocument[]
   aiProcesari         AIProcesare[]
+  inregistrari        InregistrareDocument[]
 
-  @@unique([primariaId, numarInregistrare, dataInregistrare])
+  @@unique([primariaId, numarInregistrare, dataInregistrare], name: "unique_registered_document", map: "unique_registered_document")
   @@map("documente")
 }
 

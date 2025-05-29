@@ -1,15 +1,25 @@
 /**
  * Componentă pentru afișarea și gestionarea registrelor unui departament
- * @fileoverview Lista registrelor cu funcționalități CRUD
+ * @fileoverview Lista registrelor cu funcționalități CRUD în format tabular
  */
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { 
   BookOpen, 
   FileText, 
@@ -26,203 +36,283 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ConfirmDeleteModal, useConfirmDelete, deleteConfigs } from "@/components/confirm-delete-modal"
+import { AdaugaRegistruModal } from "@/components/adauga-registru-modal"
+import { EditeazaRegistruModal } from "@/components/editeaza-registru-modal"
+import { crudNotifications, notifyError } from "@/lib/notifications"
 import axios from "axios"
+
+// Skeleton pentru tabel
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex items-center space-x-4">
+          <Skeleton className="h-4 w-[200px]" />
+          <Skeleton className="h-4 w-[100px]" />
+          <Skeleton className="h-4 w-[300px]" />
+          <Skeleton className="h-4 w-[80px]" />
+          <Skeleton className="h-4 w-[80px]" />
+          <Skeleton className="h-8 w-[100px]" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export function ListaRegistre({ departmentId }) {
   const router = useRouter()
-  const [registre, setRegistre] = useState([])
-  const [departament, setDepartament] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const queryClient = useQueryClient()
+  const { isOpen, deleteConfig, openDeleteModal, closeDeleteModal } = useConfirmDelete()
+  const [editingRegistru, setEditingRegistru] = useState(null)
 
-  // Încarcă registrele la montarea componentei
-  useEffect(() => {
-    if (departmentId) {
-      incarcaRegistre()
-      incarcaDepartament()
-    }
-  }, [departmentId])
-
-  const incarcaRegistre = async () => {
-    try {
-      setIsLoading(true)
-      const response = await axios.get(`/api/registre?departmentId=${departmentId}`)
-      
-      if (response.data.success) {
-        setRegistre(response.data.data)
+  // Query pentru registre
+  const { 
+    data: registreData, 
+    isLoading: isLoadingRegistre, 
+    error: errorRegistre 
+  } = useQuery({
+    queryKey: ['registre', departmentId],
+    queryFn: async () => {
+      const response = await axios.get(`/api/registru?departmentId=${departmentId}`)
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la încărcarea registrelor')
       }
-    } catch (error) {
-      console.error('Eroare la încărcarea registrelor:', error)
-      setError('Nu s-au putut încărca registrele')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      return response.data.data
+    },
+    enabled: !!departmentId,
+  })
 
-  const incarcaDepartament = async () => {
-    try {
+  // Query pentru departament
+  const { 
+    data: departament, 
+    isLoading: isLoadingDepartament 
+  } = useQuery({
+    queryKey: ['departament', departmentId],
+    queryFn: async () => {
       const response = await axios.get(`/api/departamente/${departmentId}`)
-      
-      if (response.data.success) {
-        setDepartament(response.data.data)
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la încărcarea departamentului')
       }
-    } catch (error) {
-      console.error('Eroare la încărcarea departamentului:', error)
+      return response.data.data
+    },
+    enabled: !!departmentId,
+  })
+  // Mutation pentru ștergere
+  const deleteRegistruMutation = useMutation({
+    mutationFn: async ({ id, nume }) => {
+      const response = await axios.delete(`/api/registru/${id}`)
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Nu s-a putut șterge registrul')
+      }
+      return { ...response.data, numeRegistru: nume }
+    },    
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['registre', departmentId] })
+      crudNotifications.deleted('Registrul', data.numeRegistru)
+    },    
+    onError: (error) => {
+      notifyError(error.message)
     }
-  }
-
+  })
   const handleVizualizeazaRegistru = (registruId) => {
     router.push(`/dashboard/e-registratura/${departmentId}/${registruId}`)
   }
-
-  const handleStergeRegistru = async (id, nume) => {
-    if (!confirm(`Ești sigur că vrei să ștergi registrul "${nume}"?`)) {
-      return
-    }
-
-    try {
-      const response = await axios.delete(`/api/registre/${id}`)
-      
-      if (response.data.success) {
-        setRegistre(prev => prev.filter(r => r.id !== id))
-      }
-    } catch (error) {
-      console.error('Eroare la ștergerea registrului:', error)
-      alert(error.response?.data?.error || 'Nu s-a putut șterge registrul')
-    }
+    const handleStergeRegistru = (id, nume) => {
+    openDeleteModal({
+      ...deleteConfigs.registru,
+      itemName: nume,
+      onConfirm: () => deleteRegistruMutation.mutate({ id, nume })
+    })
   }
 
+  const isLoading = isLoadingRegistre || isLoadingDepartament
+  const registre = registreData || []
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Se încarcă registrele...</p>
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-[300px] mb-2" />
+          <Skeleton className="h-4 w-[400px]" />
         </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-[200px]" />
+          </CardHeader>
+          <CardContent>
+            <TableSkeleton />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  if (error) {
+  if (errorRegistre) {
     return (
       <Card>
         <CardContent className="p-6">
           <div className="text-center text-red-600">
-            <p>{error}</p>
-            <Button onClick={incarcaRegistre} className="mt-4">
+            <p>{errorRegistre.message}</p>
+            <Button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['registre', departmentId] })} 
+              className="mt-4"
+            >
               Încearcă din nou
             </Button>
-          </div>
-        </CardContent>
+          </div>        </CardContent>
       </Card>
     )
   }
 
   return (
-    <div className="space-y-6">      {/* Header cu informații departament (fără buton adaugă) */}
+    <div className="space-y-6 mt-8">
+      {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">
-          Registre - {departament?.nume || 'Departament'}
-        </h2>
-        <p className="text-muted-foreground">
-          Gestionează registrele departamentului
+        <h1 className="text-2xl font-bold mb-2">
+          {departament?.nume || 'Departament'}
+        </h1>
+        <p className="text-muted-foreground mb-4">
+          Gestionează registrele pentru acest departament
         </p>
+        <AdaugaRegistruModal departmentId={departmentId} />
       </div>
-
-      {/* Lista registrelor */}
+     
       {registre.length === 0 ? (
         <Card>
           <CardContent className="p-8">
             <div className="text-center">
               <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Niciun registru</h3>
-              <p className="text-muted-foreground mb-4">
+              <h3 className="text-lg font-semibold mb-2">Niciun registru</h3>              <p className="text-muted-foreground mb-4">
                 Nu există registre create pentru acest departament. Adaugă primul registru pentru a începe.
               </p>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Adaugă Registru
-              </Button>
+              <AdaugaRegistruModal departmentId={departmentId} />
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {registre.map((registru) => (
-            <Card key={registru.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-blue-600" />
-                    <CardTitle className="text-lg">{registru.nume}</CardTitle>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleVizualizeazaRegistru(registru.id)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        Vizualizează
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Editează
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-red-600"
-                        onClick={() => handleStergeRegistru(registru.id, registru.nume)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Șterge
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                {registru.descriere && (
-                  <CardDescription className="mt-2">
-                    {registru.descriere}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {/* Statistici */}
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-4 w-4" />
-                      {registru._count?.inregistrari || 0} înregistrări
-                    </span>
-                    <Badge variant="outline">
-                      {registru.status === 'ACTIV' ? 'Activ' : 'Inactiv'}
-                    </Badge>
-                  </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Registre ({registre.length})
+            </CardTitle>
+            <CardDescription>
+              Lista tuturor registrelor din departament
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nume</TableHead>
+                  <TableHead>Cod</TableHead>
+                  <TableHead>Descriere</TableHead>
+                  <TableHead>Înregistrări</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Data creării</TableHead>
+                  <TableHead className="text-right">Acțiuni</TableHead>
+                </TableRow>
+              </TableHeader>              <TableBody>
+                {registre.map((registru) => (
+                  <TableRow key={registru.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-blue-600" />
+                        {registru.nume}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {registru.cod || 'N/A'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[300px] truncate">
+                      {registru.descriere || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        {registru._count?.documente || 0}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={registru.activ ? "default" : "secondary"}>
+                        {registru.activ ? 'Activ' : 'Inactiv'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(registru.createdAt).toLocaleDateString('ro-RO')}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleVizualizeazaRegistru(registru.id)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Vizualizează
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleVizualizeazaRegistru(registru.id)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Vizualizează
+                            </DropdownMenuItem>                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setEditingRegistru(registru)
+                              }}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editează
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => handleStergeRegistru(registru.id, registru.nume)}
+                              disabled={deleteRegistruMutation.isPending}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              {deleteRegistruMutation.isPending ? 'Se șterge...' : 'Șterge'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>        </Card>      )}
 
-                  {/* Data creării */}
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    Creat: {new Date(registru.createdAt).toLocaleDateString('ro-RO')}
-                  </div>
-
-                  {/* Butoane acțiuni */}
-                  <div className="flex gap-2 pt-2">
-                    <Button 
-                      size="sm" 
-                      className="flex-1"
-                      onClick={() => handleVizualizeazaRegistru(registru.id)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Vizualizează
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* Modal Editare */}
+      {editingRegistru && (
+        <EditeazaRegistruModal 
+          registru={editingRegistru}
+          isOpen={!!editingRegistru}
+          onClose={() => setEditingRegistru(null)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['registre', departmentId] })
+            setEditingRegistru(null)
+          }}
+        />
       )}
+
+      {/* Modaluri */}
+      <ConfirmDeleteModal
+        isOpen={isOpen}
+        onClose={closeDeleteModal}
+        config={deleteConfig}
+        isLoading={deleteRegistruMutation.isPending}
+      />
     </div>
   )
 }

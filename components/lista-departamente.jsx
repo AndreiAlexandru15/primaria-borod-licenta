@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  Building2, FileText, MoreHorizontal, Edit, Trash2, User, FolderOpen
+  Building2, FileText, MoreHorizontal, Edit, Trash2, User, FolderOpen, ChevronRight
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -59,6 +60,7 @@ function DepartamentCardSkeleton() {
 }
 
 export function ListaDepartamente() {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const { isOpen, deleteConfig, openDeleteModal, closeDeleteModal } = useConfirmDelete()
 
@@ -98,7 +100,6 @@ export function ListaDepartamente() {
       notifyError(error.message || 'A apărut o eroare la ștergerea departamentului')
     }
   })
-
   const handleStergeDepartament = (id, nume) => {
     const departament = departamente.find(d => d.id === id)
     const numarDocumente = departament?._count?.documente || 0
@@ -116,6 +117,10 @@ export function ListaDepartamente() {
       warningMessage,
       onConfirm: () => stergeDepartamentMutation.mutateAsync(id)
     })
+  }
+
+  const handleVizualizeazaDepartament = (departamentId) => {
+    router.push(`/dashboard/e-registratura/${departamentId}`)
   }
   if (isLoading) {
     return (
@@ -159,19 +164,25 @@ export function ListaDepartamente() {
             </div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      ) : (        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {departamente.map((departament) => (
-            <Card key={departament.id} className="hover:shadow-md transition-shadow">
+            <Card 
+              key={departament.id} 
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => handleVizualizeazaDepartament(departament.id)}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-blue-600" />
                     <CardTitle className="text-lg">{departament.nume}</CardTitle>
-                  </div>
-                  <DropdownMenu>
+                  </div>                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -210,8 +221,7 @@ export function ListaDepartamente() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Building2 className="h-3 w-3" />
                   <span>Cod: {departament.cod}</span>
-                </div>
-                <div className="flex gap-2 pt-2 border-t">
+                </div>                <div className="flex gap-2 pt-2 border-t">
                   <Badge variant="secondary" className="text-xs">
                     <FolderOpen className="h-3 w-3 mr-1" />
                     {departament._count?.registre || 0} registre
@@ -220,6 +230,10 @@ export function ListaDepartamente() {
                     <FileText className="h-3 w-3 mr-1" />
                     {departament._count?.documente || 0} documente
                   </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                  <span>Click pentru a vizualiza registrele</span>
+                  <ChevronRight className="h-3 w-3" />
                 </div>
               </CardContent>
             </Card>

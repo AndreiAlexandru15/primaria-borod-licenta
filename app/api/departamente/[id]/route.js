@@ -21,10 +21,9 @@ export async function GET(request, { params }) {
       return NextResponse.json(
         { error: 'Nu ești autentificat' },
         { status: 401 }
-      )
-    }
+      )    }
 
-    const { id } = params    
+    const { id } = await params    
     const departament = await prisma.departament.findFirst({
       where: {
         id: id,
@@ -94,8 +93,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json(
         { error: 'Nu ai permisiunea să editezi departamente' },
         { status: 403 }
-      )
-    }    const { id } = params
+      )    }    const { id } = await params
     const { nume, cod, descriere, telefon, email, responsabilId } = await request.json()
 
     // Verifică dacă departamentul există și include numărul de documente
@@ -304,10 +302,9 @@ export async function DELETE(request, { params }) {
       return NextResponse.json(
         { error: 'Nu ai permisiunea să ștergi departamente' },
         { status: 403 }
-      )
-    }
+      )    }
 
-    const { id } = params    // Verifică dacă departamentul există
+    const { id } = await params    // Verifică dacă departamentul există
     const departament = await prisma.departament.findFirst({
       where: {
         id: id,

@@ -22,8 +22,8 @@ import { Button } from "@/components/ui/button"
 import { Plus, Download } from "lucide-react"
 import { ListaInregistrari } from "@/components/lista-inregistrari"
 
-export default function RegistruInregistrariPage({ params }) {
-  const { departmentId, registerId } = params
+export default async function RegistruInregistrariPage({ params }) {
+  const { departmentId, registerId } = await params
 
   return (
     <SidebarProvider>

@@ -9,12 +9,13 @@ function Table({
   ...props
 }) {
   return (
-    (<div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
-        {...props} />
-    </div>)
+        {...props}
+      />
+    </div>
   );
 }
 
@@ -23,10 +24,11 @@ function TableHeader({
   ...props
 }) {
   return (
-    (<thead
+    <thead
       data-slot="table-header"
       className={cn("[&_tr]:border-b", className)}
-      {...props} />)
+      {...props}
+    />
   );
 }
 
@@ -35,10 +37,11 @@ function TableBody({
   ...props
 }) {
   return (
-    (<tbody
+    <tbody
       data-slot="table-body"
       className={cn("[&_tr:last-child]:border-0", className)}
-      {...props} />)
+      {...props}
+    />
   );
 }
 
@@ -59,13 +62,14 @@ function TableRow({
   ...props
 }) {
   return (
-    (<tr
+    <tr
       data-slot="table-row"
       className={cn(
         "hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
         className
       )}
-      {...props} />)
+      {...props}
+    />
   );
 }
 

@@ -21,9 +21,10 @@ import {
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { ListaRegistre } from "@/components/lista-registre"
+import { AdaugaRegistruModal } from "@/components/adauga-registru-modal"
 
-export default function DepartamentRegistrePage({ params }) {
-  const { departmentId } = params
+export default async function DepartamentRegistrePage({ params }) {
+  const { departmentId } = await params
 
   return (
     <SidebarProvider>
@@ -53,10 +54,8 @@ export default function DepartamentRegistrePage({ params }) {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Adaugă Registru
-            </Button>
+            <AdaugaRegistruModal departmentId={departmentId} />
+           
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
