@@ -79,17 +79,12 @@ export async function GET(request) {
 
     // Construiește filtrul
     const where = {}
-    
     if (registruId) {
       where.registruId = registruId
     }
-    
     if (departamentId) {
-      where.registru = {
-        departamentId: departamentId
-      }
+      where.registru = { departamentId: departamentId }
     }
-
     if (search) {
       where.OR = [
         { numarInregistrare: { contains: search, mode: 'insensitive' } },
@@ -99,24 +94,18 @@ export async function GET(request) {
         { observatii: { contains: search, mode: 'insensitive' } }
       ]
     }
-
-    // Calculează offset pentru paginare
     const skip = (page - 1) * limit
-
     // Execută query-ul cu include pentru relații
     const [inregistrari, total] = await Promise.all([
       prisma.inregistrare.findMany({
-        where,        include: {
-          registru: {
-            include: {
-              departament: true
-            }
-          },
+        where,
+        include: {
+          registru: { include: { departament: true } },
           fisiere: {
-            orderBy: {
-              createdAt: 'asc'
-            }
-          }
+            orderBy: { createdAt: 'asc' }
+          },
+          confidentialitate: true,
+          destinatarUtilizator: true // fix relation name
         },
         orderBy: [
           { dataInregistrare: 'desc' },
@@ -126,14 +115,24 @@ export async function GET(request) {
         take: limit
       }),
       prisma.inregistrare.count({ where })
-    ])    // Calculează metadatele pentru paginare
+    ])
+    // Adaugă dataFisier și confidentialitateFisierDenumire/cod la nivel de inregistrare pentru primul fișier (pentru DataTable)
+    const inregistrariWithDataFisier = inregistrari.map(inr => {
+      const fisier = inr.fisiere?.[0];
+      return {
+        ...inr,
+        dataFisier: fisier?.dataFisier || null,
+        confidentialitateFisierDenumire: fisier?.confidentialitateDenumire || fisier?.confidentialitate || inr.confidentialitate?.denumire || null,
+        confidentialitateFisierCod: fisier?.confidentialitateCod || null,
+        destinatarNume: inr.destinatarUtilizator ? `${inr.destinatarUtilizator.nume} ${inr.destinatarUtilizator.prenume}` : null,
+        destinatarFunctie: inr.destinatarUtilizator?.functie || null
+      };
+    })
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPreviousPage = page > 1
-
-    // Serialize data to handle BigInt values
     const serializedData = serializeBigInt({
-      inregistrari,
+      inregistrari: inregistrariWithDataFisier,
       pagination: {
         currentPage: page,
         totalPages,
@@ -143,12 +142,10 @@ export async function GET(request) {
         hasPreviousPage
       }
     })
-
     return NextResponse.json({
       success: true,
       data: serializedData
     })
-
   } catch (error) {
     console.error('Eroare la încărcarea înregistrărilor:', error)
     return NextResponse.json(
@@ -164,25 +161,34 @@ export async function GET(request) {
 
 // POST - Creează o înregistrare nouă cu documente
 export async function POST(request) {
-  try {    const body = await request.json()
+  try {
+    const body = await request.json()
     const { 
       registruId, 
       expeditor, 
-      destinatar, 
+      destinatarId, // user ID
       obiect, 
       observatii,
       urgent = false, 
       confidential = false,
-      fisiereIds = [] // Array de ID-uri de fișiere existente
+      tipDocumentId = null,
+      fisiereIds = [], // Array de ID-uri de fișiere existente
+      confidentialitateId = null // Adăugat pentru a seta nivelul de confidențialitate
     } = body
 
     // Validare
-    if (!registruId || !obiect) {
+    if (!registruId || !obiect || !tipDocumentId) {
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Registrul și obiectul sunt obligatorii' 
+          error: 'Registrul, obiectul și tipul de document sunt obligatorii' 
         },
+        { status: 400 }
+      )
+    }
+    if (!destinatarId) {
+      return NextResponse.json(
+        { success: false, error: 'Destinatarul este obligatoriu' },
         { status: 400 }
       )
     }
@@ -191,7 +197,6 @@ export async function POST(request) {
     const registru = await prisma.registru.findUnique({
       where: { id: registruId }
     })
-
     if (!registru) {
       return NextResponse.json(
         { 
@@ -199,6 +204,19 @@ export async function POST(request) {
           error: 'Registrul specificat nu există' 
         },
         { status: 404 }
+      )
+    }
+    // Verifică dacă tipul de document există și aparține registrului
+    const tipDocument = await prisma.tipDocument.findUnique({
+      where: { id: tipDocumentId }
+    })
+    if (!tipDocument || tipDocument.registruId !== registruId) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Tipul de document nu există sau nu aparține registrului' 
+        },
+        { status: 400 }
       )
     }    // Generează numărul de înregistrare
     const dataInregistrare = new Date()
@@ -222,6 +240,18 @@ export async function POST(request) {
 
     const numarInregistrare = `${registru.cod}-${String(nextNumber).padStart(4, '0')}`
 
+    // Preia confidentialitateId din body sau din categoria documentului dacă nu e dat
+    let finalConfidentialitateId = confidentialitateId
+    if (!finalConfidentialitateId) {
+      // Încearcă să preiei din categoria documentului dacă există fișiere
+      if (fisiereIds.length > 0) {
+        const firstFisier = await prisma.fisier.findUnique({ where: { id: fisiereIds[0] }, include: { categorie: true } })
+        if (firstFisier?.categorie?.confidentialitateDefaultId) {
+          finalConfidentialitateId = firstFisier.categorie.confidentialitateDefaultId
+        }
+      }
+    }
+
     // Creează înregistrarea în tranzacție
     const result = await prisma.$transaction(async (tx) => {
       // Creează înregistrarea
@@ -231,11 +261,13 @@ export async function POST(request) {
           numarInregistrare,
           dataInregistrare,
           expeditor,
-          destinatar,
+          destinatarId, // store user ID
           obiect,
           observatii,
           urgent,
-          confidential
+          confidential,
+          tipDocumentId,
+          confidentialitateId: finalConfidentialitateId
         }
       })      // Atașează fișierele dacă există
       if (fisiereIds.length > 0) {
@@ -247,7 +279,7 @@ export async function POST(request) {
             inregistrareId: inregistrare.id
           }
         })
-      }      // Returnează înregistrarea cu relațiile
+      }// Returnează înregistrarea cu relațiile
       return await tx.inregistrare.findUnique({
         where: { id: inregistrare.id },
         include: {
@@ -256,13 +288,12 @@ export async function POST(request) {
               departament: true
             }
           },
-          fisiere: {
-            orderBy: {
-              createdAt: 'asc'
-            }
-          }
+          fisiere: { orderBy: { createdAt: 'asc' } },
+          confidentialitate: true,
+          destinatarUtilizator: true // fix relation name
         }
-      })    })
+      })
+    })
 
     // Redenumește fișierele pe disk cu numărul de înregistrare
     if (fisiereIds.length > 0) {

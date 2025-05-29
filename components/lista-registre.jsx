@@ -65,28 +65,30 @@ export function ListaRegistre({ departmentId }) {
   const queryClient = useQueryClient()
   const { isOpen, deleteConfig, openDeleteModal, closeDeleteModal } = useConfirmDelete()
   const [editingRegistru, setEditingRegistru] = useState(null)
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   // Query pentru registre
-  const { 
-    data: registreData, 
-    isLoading: isLoadingRegistre, 
-    error: errorRegistre 
+  const {
+    data: registreDataRaw,
+    isLoading: isLoadingRegistre,
+    error: errorRegistre
   } = useQuery({
-    queryKey: ['registre', departmentId],
+    queryKey: ['registre', departmentId, selectedYear],
     queryFn: async () => {
-      const response = await axios.get(`/api/registru?departmentId=${departmentId}`)
+      const response = await axios.get(`/api/registru?departmentId=${departmentId}&an=${selectedYear}`)
       if (!response.data.success) {
         throw new Error(response.data.error || 'Eroare la încărcarea registrelor')
       }
-      return response.data.data
+      return response.data
     },
     enabled: !!departmentId,
   })
 
   // Query pentru departament
-  const { 
-    data: departament, 
-    isLoading: isLoadingDepartament 
+  const {
+    data: departament,
+    isLoading: isLoadingDepartament
   } = useQuery({
     queryKey: ['departament', departmentId],
     queryFn: async () => {
@@ -98,6 +100,11 @@ export function ListaRegistre({ departmentId }) {
     },
     enabled: !!departmentId,
   })
+
+  // Extrage registre și ani disponibili
+  const registre = registreDataRaw?.data || [];
+  const aniDisponibili = registreDataRaw?.ani || [currentYear];
+
   // Mutation pentru ștergere
   const deleteRegistruMutation = useMutation({
     mutationFn: async ({ id, nume }) => {
@@ -127,7 +134,6 @@ export function ListaRegistre({ departmentId }) {
   }
 
   const isLoading = isLoadingRegistre || isLoadingDepartament
-  const registre = registreData || []
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -171,10 +177,25 @@ export function ListaRegistre({ departmentId }) {
         <h1 className="text-2xl font-bold mb-2">
           {departament?.nume || 'Departament'}
         </h1>
-        <p className="text-muted-foreground mb-4">
-          Gestionează registrele pentru acest departament
-        </p>
-        <AdaugaRegistruModal departmentId={departmentId} />
+        <div className="flex flex-wrap gap-4 items-center mb-4">
+          <p className="text-muted-foreground">
+            Gestionează registrele pentru acest departament
+          </p>
+          <div className="flex items-center gap-2">
+            <label htmlFor="an-select" className="text-sm font-medium">An:</label>
+            <select
+              id="an-select"
+              className="border rounded px-2 py-1 text-sm"
+              value={selectedYear}
+              onChange={e => setSelectedYear(Number(e.target.value))}
+            >
+              {aniDisponibili.map(an => (
+                <option key={an} value={an}>{an}</option>
+              ))}
+            </select>
+          </div>
+          <AdaugaRegistruModal departmentId={departmentId} />
+        </div>
       </div>
      
       {registre.length === 0 ? (
@@ -209,10 +230,12 @@ export function ListaRegistre({ departmentId }) {
                   <TableHead>Descriere</TableHead>
                   <TableHead>Înregistrări</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>An</TableHead>
                   <TableHead>Data creării</TableHead>
                   <TableHead className="text-right">Acțiuni</TableHead>
                 </TableRow>
-              </TableHeader>              <TableBody>
+              </TableHeader>
+              <TableBody>
                 {registre.map((registru) => (
                   <TableRow key={registru.id}>
                     <TableCell className="font-medium">
@@ -232,13 +255,16 @@ export function ListaRegistre({ departmentId }) {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <FileText className="h-4 w-4 text-muted-foreground" />
-                        {registru._count?.documente || 0}
+                        {registru._count?.inregistrari || 0}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={registru.activ ? "default" : "secondary"}>
                         {registru.activ ? 'Activ' : 'Inactiv'}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {registru.an}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">

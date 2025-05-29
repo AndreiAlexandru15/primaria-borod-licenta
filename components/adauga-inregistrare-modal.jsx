@@ -6,7 +6,7 @@
 
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -47,13 +47,14 @@ export function AdaugaInregistrareModal({
   departamentId = null, 
   registruId = null,
   trigger = null 
-}) {  const [isOpen, setIsOpen] = useState(false)
+}) {
+  const [isOpen, setIsOpen] = useState(false)
   const [formData, setFormData] = useState({
     expeditor: '',
-    destinatar: '',
+    destinatarId: '', // store user ID
     obiect: '',
     observatii: '',
-    dataDocument: new Date().toISOString().split('T')[0], // Data curentă ca default
+    dataDocument: new Date().toISOString().split('T')[0],
     tipDocumentId: '',
     fisierAtas: null
   })
@@ -73,6 +74,19 @@ export function AdaugaInregistrareModal({
       return response.data.success ? response.data.data : []
     },
     enabled: !!registruId
+  })
+  
+  // Fetch users for the department
+  const { data: utilizatori = [], isLoading: utilizatoriLoading, error: utilizatoriError } = useQuery({
+    queryKey: ['utilizatori', departamentId],
+    queryFn: async () => {
+      if (!departamentId) return [];
+      const response = await axios.get('/api/utilizatori');
+      if (!response.data.success) throw new Error('Nu s-au putut încărca utilizatorii');
+      // Returnează toți utilizatorii, fără filtrare după departament
+      return response.data.data;
+    },
+    enabled: isOpen && !!departamentId
   })
   
   // Mutation pentru upload fișier
@@ -146,23 +160,23 @@ export function AdaugaInregistrareModal({
   })  // Mutation pentru creare înregistrare
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      // Se adaugă automat departamentId și registruId la payload
-      // și se transformă fisierAtas în fisiereIds (array)
       const payload = {
         ...data,
         registruId,
         departamentId,
         fisiereIds: data.fisierAtas ? [data.fisierAtas] : []
       }
-      // Eliminăm fisierAtas din payload pentru că API-ul nu îl recunoaște
       delete payload.fisierAtas
+      // Remove destinatar if present, only send destinatarId
+      if (payload.destinatar) delete payload.destinatar
       
       const response = await axios.post('/api/inregistrari', payload)
       if (!response.data.success) {
         throw new Error(response.data.error || 'Eroare la crearea înregistrării')
       }
       return response.data.data
-    },onSuccess: (data) => {
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['inregistrari'] })
       if (registruId) {
         queryClient.invalidateQueries({ queryKey: ['registru', registruId] })
@@ -182,7 +196,7 @@ export function AdaugaInregistrareModal({
   const resetForm = () => {
     setFormData({
       expeditor: '',
-      destinatar: '',
+      destinatarId: '',
       obiect: '',
       observatii: '',
       dataDocument: new Date().toISOString().split('T')[0],
@@ -205,6 +219,10 @@ export function AdaugaInregistrareModal({
     }
     if (!departamentId || !registruId) {
       notifyError('Departamentul și registrul sunt obligatorii pentru a crea înregistrarea')
+      return
+    }
+    if (!formData.destinatarId) {
+      notifyError('Destinatarul este obligatoriu')
       return
     }
     // Trimit datele cu departamentId și registruId incluse automat
@@ -261,6 +279,30 @@ export function AdaugaInregistrareModal({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
+  // Setează destinatarId la responsabilul departamentului dacă există
+  useEffect(() => {
+    if (isOpen && utilizatori.length > 0 && departamentId) {
+      axios.get(`/api/departamente`).then(res => {
+        if (res.data.success) {
+          const dep = res.data.data.find(d => d.id === departamentId);
+          let responsabilId = dep?.responsabil?.id || null;
+          let destinatarValid = utilizatori.some(u => u.id === formData.destinatarId);
+          // Dacă destinatarId nu e valid sau e gol, setează responsabilul dacă există în listă, altfel primul utilizator
+          if (!destinatarValid) {
+            let newDestinatarId = (responsabilId && utilizatori.some(u => u.id === responsabilId))
+              ? responsabilId
+              : utilizatori[0].id;
+            setFormData(prev => ({ ...prev, destinatarId: newDestinatarId }));
+          }
+        }
+      });
+    }
+    if (!isOpen && formData.destinatarId !== '') {
+      setFormData(prev => ({ ...prev, destinatarId: '' }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, utilizatori, departamentId])
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
       setIsOpen(open)
@@ -284,7 +326,6 @@ export function AdaugaInregistrareModal({
             Completează datele pentru noua înregistrare în registratură
           </DialogDescription>
         </DialogHeader>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Expeditor */}
           <div className="space-y-2">
@@ -300,18 +341,35 @@ export function AdaugaInregistrareModal({
             />
           </div>
 
-          {/* Destinatar */}
+          {/* Destinatar (dropdown) */}
           <div className="space-y-2">
-            <Label htmlFor="destinatar" className="flex items-center gap-2">
+            <Label htmlFor="destinatarId" className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              Destinatar
+              Destinatar *
             </Label>
-            <Input
-              id="destinatar"
-              value={formData.destinatar}
-              onChange={(e) => setFormData(prev => ({ ...prev, destinatar: e.target.value }))}
-              placeholder="Nume destinatar sau departament"
-            />
+            <Select
+              value={formData.destinatarId && utilizatori.some(u => u.id?.toString() === formData.destinatarId?.toString()) ? formData.destinatarId.toString() : undefined}
+              onValueChange={val => setFormData(prev => ({ ...prev, destinatarId: val }))}
+              required
+              name="destinatarId"
+              disabled={utilizatoriLoading || utilizatori.length === 0}
+            >
+              <SelectTrigger id="destinatarId">
+                <SelectValue placeholder={utilizatoriLoading ? 'Se încarcă utilizatorii...' : 'Selectează destinatarul'} />
+              </SelectTrigger>
+              <SelectContent>
+                {utilizatori.length > 0 && utilizatori
+                  .filter(u => u.id !== undefined && u.id !== null && u.id.toString() !== "")
+                  .map(u => (
+                    <SelectItem key={u.id} value={u.id.toString()}>
+                      {u.nume} {u.prenume} - {u.functie || 'Fără funcție'}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {utilizatori.length === 0 && !utilizatoriLoading && (
+              <p className="text-xs text-gray-500">Niciun utilizator disponibil în acest departament.</p>
+            )}
           </div>
 
           {/* Obiect */}
@@ -385,7 +443,7 @@ export function AdaugaInregistrareModal({
                       {tip.nume}
                     </SelectItem>
                   ))
-                )}
+               ) }
               </SelectContent>
             </Select>
           </div>

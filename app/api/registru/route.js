@@ -33,6 +33,7 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url)
     const departmentId = searchParams.get('departmentId')
+    const an = searchParams.get('an') ? parseInt(searchParams.get('an')) : undefined;
 
     if (!departmentId) {
       return NextResponse.json(
@@ -55,10 +56,11 @@ export async function GET(request) {
         { status: 404 }
       )    }
 
-    // Obține registrele departamentului
+    // Obține registrele departamentului, cu filtrare după an dacă e cazul
     const registre = await prisma.registru.findMany({
       where: {
-        departamentId: departmentId
+        departamentId: departmentId,
+        ...(an ? { an } : {})
       },
       include: {
         _count: {
@@ -72,9 +74,19 @@ export async function GET(request) {
       }
     })
 
+    // Extrage lista de ani disponibili pentru filtre (distinct)
+    const aniDisponibili = await prisma.registru.findMany({
+      where: { departamentId: departmentId },
+      select: { an: true },
+      distinct: ['an'],
+      orderBy: { an: 'desc' }
+    });
+    const listaAni = aniDisponibili.map(r => r.an).sort((a, b) => b - a);
+
     return NextResponse.json(serializeBigInt({
       success: true,
-      data: registre
+      data: registre,
+      ani: listaAni
     }))
 
   } catch (error) {

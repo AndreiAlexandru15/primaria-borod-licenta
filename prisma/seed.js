@@ -83,47 +83,6 @@ const PERMISIUNI_INITIALE = [
 ]
 
 /**
- * Categoriile de documente standard pentru primării
- */
-const CATEGORII_DOCUMENTE_INITIALE = [
-  {
-    nume: 'Hotărâri Consiliu Local',
-    cod: 'HCL',
-    descriere: 'Hotărâri ale Consiliului Local',
-    perioadaRetentie: 50,
-    confidentialitateDefault: 'public'
-  },
-  {
-    nume: 'Dispoziții Primar',
-    cod: 'DP',
-    descriere: 'Dispoziții ale Primarului',
-    perioadaRetentie: 25,
-    confidentialitateDefault: 'public'
-  },
-  {
-    nume: 'Contracte',
-    cod: 'CONTR',
-    descriere: 'Contracte și convenții',
-    perioadaRetentie: 10,
-    confidentialitateDefault: 'confidential'
-  },
-  {
-    nume: 'Corespondență',
-    cod: 'COR',
-    descriere: 'Corespondență oficială',
-    perioadaRetentie: 5,
-    confidentialitateDefault: 'public'
-  },
-  {
-    nume: 'Procese Verbale',
-    cod: 'PV',
-    descriere: 'Procese verbale diverse',
-    perioadaRetentie: 10,
-    confidentialitateDefault: 'public'
-  }
-]
-
-/**
  * Funcție principală de seed
  */
 async function main() {
@@ -146,19 +105,32 @@ async function main() {
 
     console.log('🗑️  Date existente șterse')
 
-    // 2. Creează primăria de test
+    // 2. Creează nivelurile de confidențialitate de bază
+    const confidentialitati = [
+      { cod: 'public', denumire: 'Public', descriere: 'Document accesibil publicului' },
+      { cod: 'confidential', denumire: 'Confidențial', descriere: 'Document confidențial' },
+      { cod: 'secret', denumire: 'Secret', descriere: 'Document secret' }
+    ];
+    const confidentialitateDocs = {};
+    for (const conf of confidentialitati) {
+      const c = await prisma.confidentialitateDocument.create({ data: conf });
+      confidentialitateDocs[conf.cod] = c;
+    }
+    console.log('🔒 Confidentialități create');
+
+    // 3. Creează primăria Borod
     const primariaTest = await prisma.primaria.create({
       data: {
         id: '450e8400-e29b-41d4-a716-446655440001',
-        nume: 'Primăria Municipiului București Sector 1',
-        codSiruta: '40011',
-        judet: 'București',
-        localitate: 'București',
-        adresa: 'Calea Griviței nr. 1, București',
+        nume: 'Primăria Comunei Borod',
+        codSiruta: '263457',
+        judet: 'Bihor',
+        localitate: 'Borod',
+        adresa: 'Str. Principală nr. 1, Borod, Bihor',
         contactInfo: {
-          telefon: '021.555.0001',
-          email: 'contact@sector1.ro',
-          website: 'www.sector1.ro'
+          telefon: '0259.123.456',
+          email: 'primaria@borod.ro',
+          website: 'www.primariaborod.ro'
         },
         configurari: {
           logoPath: null,
@@ -166,10 +138,10 @@ async function main() {
           timezone: 'Europe/Bucharest'
         }
       }
-    })
-    console.log('🏛️  Primăria de test creată')
+    });
+    console.log('🏛️  Primăria Borod creată')
 
-    // 3. Creează rolurile
+    // 4. Creează rolurile
     for (const rol of ROLURI_INITIALE) {
       await prisma.rol.create({
         data: rol
@@ -177,7 +149,7 @@ async function main() {
     }
     console.log('👥 Roluri create')
 
-    // 4. Creează permisiunile
+    // 5. Creează permisiunile
     for (const permisiune of PERMISIUNI_INITIALE) {
       await prisma.permisiune.create({
         data: permisiune
@@ -185,7 +157,7 @@ async function main() {
     }
     console.log('🔐 Permisiuni create')
 
-    // 5. Atribuie permisiuni la roluri
+    // 6. Atribuie permisiuni la roluri
 
     // Super Admin - toate permisiunile
     const toatePermisiunile = await prisma.permisiune.findMany()
@@ -266,7 +238,7 @@ async function main() {
 
     console.log('🔗 Relații rol-permisiuni create')
 
-    // 6. Creează utilizatori de test
+    // 7. Creează utilizatori de test
     const parolaHash = await bcrypt.hash('parola123', 10)
 
     // Super Admin
@@ -316,7 +288,7 @@ async function main() {
 
     console.log('👤 Utilizatori de test creați')
 
-    // 7. Atribuie roluri utilizatorilor
+    // 8. Atribuie roluri utilizatorilor
     await prisma.utilizatorRol.create({
       data: {
         utilizatorId: superAdmin.id,
@@ -340,14 +312,50 @@ async function main() {
 
     console.log('🔗 Roluri atribuite utilizatorilor')
 
-    // 8. Creează categoriile de documente
+    // 9. Creează categoriile de documente cu confidentialitate corectă
+    const CATEGORII_DOCUMENTE_INITIALE = [
+      {
+        nume: 'Hotărâri Consiliu Local',
+        cod: 'HCL',
+        descriere: 'Hotărâri ale Consiliului Local',
+        perioadaRetentie: 50,
+        confidentialitateDefaultId: confidentialitateDocs['public'].id
+      },
+      {
+        nume: 'Dispoziții Primar',
+        cod: 'DP',
+        descriere: 'Dispoziții ale Primarului',
+        perioadaRetentie: 25,
+        confidentialitateDefaultId: confidentialitateDocs['public'].id
+      },
+      {
+        nume: 'Contracte',
+        cod: 'CONTR',
+        descriere: 'Contracte și convenții',
+        perioadaRetentie: 10,
+        confidentialitateDefaultId: confidentialitateDocs['confidential'].id
+      },
+      {
+        nume: 'Corespondență',
+        cod: 'COR',
+        descriere: 'Corespondență oficială',
+        perioadaRetentie: 5,
+        confidentialitateDefaultId: confidentialitateDocs['public'].id
+      },
+      {
+        nume: 'Procese Verbale',
+        cod: 'PV',
+        descriere: 'Procese verbale diverse',
+        perioadaRetentie: 10,
+        confidentialitateDefaultId: confidentialitateDocs['public'].id
+      }
+    ];
     for (const categorie of CATEGORII_DOCUMENTE_INITIALE) {
-      await prisma.categorieDocument.create({
-        data: categorie
-      })
-    }    console.log('📁 Categorii documente create')
+      await prisma.categorieDocument.create({ data: categorie });
+    }
+    console.log('📁 Categorii documente create')
 
-    // 9. Creează departamentele
+    // 10. Creează departamentele
     const departamentAdministrativ = await prisma.departament.create({
       data: {
         nume: 'Administrativ',
@@ -377,7 +385,7 @@ async function main() {
 
     console.log('🏢 Departamente create')
 
-    // 10. Creează registrele
+    // 11. Creează registrele
     const registruDeciziePrimar = await prisma.registru.create({
       data: {
         nume: 'Decizie Primar',
@@ -420,7 +428,7 @@ async function main() {
 
     console.log('📋 Registre create')
 
-    // 11. Creează tipurile de documente specifice pentru fiecare registru
+    // 12. Creează tipurile de documente specifice pentru fiecare registru
 
     // Tipuri documente pentru Decizie Primar
     await prisma.tipDocument.create({

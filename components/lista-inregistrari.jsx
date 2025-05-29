@@ -45,25 +45,43 @@ const getColumns = (formatDate, getStatusBadge) => [
         <Calendar className="h-4 w-4 text-muted-foreground" />
         {formatDate(row.original.dataInregistrare)}
       </div>
-    ),  },
+    ),
+  },
+  {
+    accessorKey: "dataFisier",
+    header: "Data Document",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1 text-sm">
+        <Calendar className="h-4 w-4 text-muted-foreground" />
+        {row.original.dataFisier ? formatDate(row.original.dataFisier) : '-'}
+      </div>
+    ),
+  },
   {
     accessorKey: "expeditor",
     header: "Expeditor",
-    cell: ({ row }) => (      <div className="flex items-center gap-1">
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1">
         <User className="h-4 w-4 text-muted-foreground" />
         {row.original.expeditor || '-'}
       </div>
     ),
   },
   {
-    accessorKey: "destinatar",
+    accessorKey: "destinatarNume",
     header: "Destinatar",
-    cell: ({ row }) => (      <div className="flex items-center gap-1">
+    cell: ({ row }) => (
+      <div className="flex items-center gap-1">
         <User className="h-4 w-4 text-muted-foreground" />
-        {row.original.destinatar || '-'}
+        {row.original.destinatarNume ? (
+          <span>{row.original.destinatarNume}{row.original.destinatarFunctie ? ` (${row.original.destinatarFunctie})` : ''}</span>
+        ) : (
+          <span>-</span>
+        )}
       </div>
     ),
-  },  {
+  },
+  {
     accessorKey: "obiect",
     header: "Obiect",
     cell: ({ row }) => (
@@ -78,12 +96,12 @@ const getColumns = (formatDate, getStatusBadge) => [
     ),
   },
   {
-    accessorKey: "documente",
-    header: "Documente",
+    accessorKey: "confidentialitate",
+    header: "Confidențialitate",
     cell: ({ row }) => (
       <div className="flex items-center gap-1">
-        <FileText className="h-4 w-4 text-muted-foreground" />
-        {row.original.documente?.length || 0}
+        <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+        {row.original.confidentialitateFisierDenumire || row.original.confidentialitate?.denumire || '-'}
       </div>
     ),
   },

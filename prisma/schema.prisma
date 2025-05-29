@@ -100,6 +100,7 @@ model Utilizator {
   rolAcordat              UtilizatorRol[]         @relation("AcordatDe")
   auditLog                AuditLog[]
   istoricDocumente        IstoricFisier[]         @relation("ModificatDe")
+  destinatarInregistrari  Inregistrare[]          @relation("DestinatarInregistrare")
 
   @@map("utilizatori")
 }
@@ -171,7 +172,7 @@ model Departament {
   email         String?
   activ         Boolean  @default(true)
   createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
 
   // Relații
   primaria    Primaria                @relation(fields: [primariaId], references: [id])
@@ -190,9 +191,10 @@ model Registru {
   cod           String
   descriere     String?
   tipRegistru   TipRegistru @map("tip_registru")
+  an            Int         @default(dbgenerated("EXTRACT(YEAR FROM now())::int"))
   activ         Boolean     @default(true)
   createdAt     DateTime    @default(now()) @map("created_at")
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  updatedAt     DateTime    @default(now()) @map("updated_at")
 
   // Relații
   departament    Departament      @relation(fields: [departamentId], references: [id])
@@ -200,6 +202,7 @@ model Registru {
   tipuriDocument TipDocument[]
 
   @@unique([departamentId, cod])
+  @@unique([departamentId, nume, an])
   @@map("registre")
 }
 
@@ -213,7 +216,7 @@ model TipDocument {
   activ       Boolean  @default(true)
   ordineSortare Int?   @map("ordine_sortare") @default(0)
   createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
 
   // Relații
   registru     Registru       @relation(fields: [registruId], references: [id], onDelete: Cascade)
@@ -231,12 +234,14 @@ model Inregistrare {
   numarInregistrare String             @map("numar_inregistrare")
   dataInregistrare  DateTime           @default(now()) @map("data_inregistrare") @db.Date
   expeditor         String?
-  destinatar        String?
+  destinatarId      String?            @map("destinatar_id")
+  destinatar        String?            // DEPRECATED: Use destinatarId
   obiect            String
   observatii        String?
   urgent            Boolean            @default(false)
   confidential      Boolean            @default(false)
   status            StatusInregistrare @default(activa)
+  confidentialitateId String? @map("confidentialitate_id")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
 
@@ -244,6 +249,8 @@ model Inregistrare {
   registru    Registru     @relation(fields: [registruId], references: [id])
   tipDocument TipDocument? @relation(fields: [tipDocumentId], references: [id])
   fisiere     Fisier[]
+  confidentialitate ConfidentialitateDocument? @relation(fields: [confidentialitateId], references: [id])
+  destinatarUtilizator Utilizator? @relation("DestinatarInregistrare", fields: [destinatarId], references: [id])
 
   @@unique([registruId, numarInregistrare, dataInregistrare], name: "unique_registration")
   @@map("inregistrari")
@@ -262,7 +269,8 @@ model CategorieDocument {
   cod                      String
   descriere                String?
   perioadaRetentie         Int?               @map("perioada_retentie") // în ani
-  confidentialitateDefault Confidentialitate? @map("confidentialitate_default")
+  confidentialitateDefaultId String? @map("confidentialitate_default_id")
+  confidentialitateDefault ConfidentialitateDocument? @relation("ConfidentialitateDefaultCategorie", fields: [confidentialitateDefaultId], references: [id])
   metadateObligatorii      Json?              @map("metadate_obligatorii")
   active                   Boolean            @default(true)
   createdAt                DateTime           @default(now()) @map("created_at")
@@ -322,7 +330,7 @@ model Rol {
   activ      Boolean  @default(true)
   sistem     Boolean  @default(false)
   createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  updatedAt  DateTime @default(now()) @map("updated_at")
 
   // Relații
   permisiuni  RolPermisiune[]
@@ -424,4 +432,21 @@ model AIProcesare {
   fisier Fisier @relation(fields: [fisierId], references: [id])
 
   @@map("ai_procesari")
+}
+
+// Niveluri de confidențialitate pentru documente
+model ConfidentialitateDocument {
+  id          String   @id @default(uuid())
+  cod         String   @unique
+  denumire    String
+  descriere   String?
+  activ       Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relații
+  inregistrari Inregistrare[]
+  categoriiDocumente CategorieDocument[] @relation("ConfidentialitateDefaultCategorie")
+
+  @@map("confidentialitati_documente")
 }
