@@ -242,6 +242,7 @@ model Inregistrare {
   confidential      Boolean            @default(false)
   status            StatusInregistrare @default(activa)
   confidentialitateId String? @map("confidentialitate_id")
+  numarDocument      String?            @map("numar_document")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
 

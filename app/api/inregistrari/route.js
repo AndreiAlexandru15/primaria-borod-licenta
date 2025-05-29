@@ -160,8 +160,7 @@ export async function GET(request) {
 }
 
 // POST - Creează o înregistrare nouă cu documente
-export async function POST(request) {
-  try {
+export async function POST(request) {  try {
     const body = await request.json()
     const { 
       registruId, 
@@ -169,11 +168,13 @@ export async function POST(request) {
       destinatarId, // user ID
       obiect, 
       observatii,
+      dataDocument, // Data documentului din formular
       urgent = false, 
       confidential = false,
       tipDocumentId = null,
       fisiereIds = [], // Array de ID-uri de fișiere existente
-      confidentialitateId = null // Adăugat pentru a seta nivelul de confidențialitate
+      confidentialitateId = null, // Adăugat pentru a seta nivelul de confidențialitate
+      numarDocument // <-- nou
     } = body
 
     // Validare
@@ -267,17 +268,25 @@ export async function POST(request) {
           urgent,
           confidential,
           tipDocumentId,
-          confidentialitateId: finalConfidentialitateId
+          confidentialitateId: finalConfidentialitateId,
+          numarDocument // <-- adăugat
         }
       })      // Atașează fișierele dacă există
       if (fisiereIds.length > 0) {
+        const updateData = {
+          inregistrareId: inregistrare.id
+        }
+        
+        // Adaugă data documentului dacă este furnizată
+        if (dataDocument) {
+          updateData.dataFisier = new Date(dataDocument)
+        }
+        
         await tx.fisier.updateMany({
           where: {
             id: { in: fisiereIds }
           },
-          data: {
-            inregistrareId: inregistrare.id
-          }
+          data: updateData
         })
       }// Returnează înregistrarea cu relațiile
       return await tx.inregistrare.findUnique({

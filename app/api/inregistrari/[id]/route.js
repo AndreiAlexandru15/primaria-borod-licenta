@@ -28,14 +28,10 @@ export async function GET(request, { params }) {
             departament: true
           }
         },
-        documente: {
-          include: {
-            document: true
-          },
-          orderBy: {
-            ordinea: 'asc'
-          }
-        }
+        fisiere: true,
+        confidentialitate: true,
+        destinatarUtilizator: true,
+        tipDocument: true
       }
     })
 
@@ -47,9 +43,11 @@ export async function GET(request, { params }) {
         },
         { status: 404 }
       )
-    }    return NextResponse.json(serializeBigInt({
+    }
+    // Asigură includerea numarDocument în răspuns
+    return NextResponse.json(serializeBigInt({
       success: true,
-      data: inregistrare
+      data: { ...inregistrare, numarDocument: inregistrare.numarDocument },
     }))
 
   } catch (error) {
@@ -79,6 +77,7 @@ export async function PUT(request, { params }) {
       confidential,
       status,
       documenteIds = [] // Noi documente de atașat
+      numarDocument // Nou
     } = body
 
     // Verifică dacă înregistrarea există
@@ -111,7 +110,8 @@ export async function PUT(request, { params }) {
           observatii,
           urgent,
           confidential,
-          status
+          status,
+          numarDocument, // Adăugat
         }
       })
 

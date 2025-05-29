@@ -56,7 +56,8 @@ export function AdaugaInregistrareModal({
     observatii: '',
     dataDocument: new Date().toISOString().split('T')[0],
     tipDocumentId: '',
-    fisierAtas: null
+    fisierAtas: null,
+    numarDocument: '',
   })
   const [file, setFile] = useState(null)  
   const [isDragOver, setIsDragOver] = useState(false)
@@ -157,7 +158,9 @@ export function AdaugaInregistrareModal({
     onError: (error) => {
       notifyError('Eroare la ștergerea fișierului')
     }
-  })  // Mutation pentru creare înregistrare
+  })
+  
+  // Mutation pentru creare înregistrare
   const createMutation = useMutation({
     mutationFn: async (data) => {
       const payload = {
@@ -201,12 +204,14 @@ export function AdaugaInregistrareModal({
       observatii: '',
       dataDocument: new Date().toISOString().split('T')[0],
       tipDocumentId: '',
-      fisierAtas: null
+      fisierAtas: null,
+      numarDocument: '',
     })
     setFile(null)
     setUploadProgress(0)
     setIsUploading(false)
   }
+  
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!formData.tipDocumentId) {
@@ -223,6 +228,10 @@ export function AdaugaInregistrareModal({
     }
     if (!formData.destinatarId) {
       notifyError('Destinatarul este obligatoriu')
+      return
+    }
+    if (!formData.fisierAtas) {
+      notifyError('Fișierul atașat este obligatoriu')
       return
     }
     // Trimit datele cu departamentId și registruId incluse automat
@@ -448,20 +457,32 @@ export function AdaugaInregistrareModal({
             </Select>
           </div>
 
+          {/* Număr Document */}
+          <div className="space-y-2">
+            <Label htmlFor="numarDocument" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Număr Document
+            </Label>
+            <Input
+              id="numarDocument"
+              value={formData.numarDocument}
+              onChange={(e) => setFormData(prev => ({ ...prev, numarDocument: e.target.value }))}
+              placeholder="Număr document (opțional)"
+            />
+          </div>
+
           {/* Upload Zone */}
-          <div className="space-y-4">
-            <Label className="flex items-center gap-2">
+          <div className="space-y-4">            <Label className="flex items-center gap-2">
               <Paperclip className="h-4 w-4" />
-              Fișier Atașat
+              Fișier Atașat *
             </Label>
             
-            {!file ? (
-              <Card
+            {!file ? (              <Card
                 className={`border-2 border-dashed transition-colors ${
                   isDragOver 
                     ? 'border-primary bg-primary/5' 
                     : 'border-gray-300 hover:border-gray-400'
-                }`}
+                } ${!formData.fisierAtas ? 'border-red-200 bg-red-50/50' : ''}`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -480,6 +501,9 @@ export function AdaugaInregistrareModal({
                   </p>
                   <p className="text-xs text-gray-500">
                     Orice tip de fișier (fără limită de mărime)
+                  </p>
+                  <p className="text-xs text-red-500 mt-1 font-medium">
+                    * Câmp obligatoriu
                   </p>
                   <input
                     ref={fileInputRef}
@@ -538,10 +562,9 @@ export function AdaugaInregistrareModal({
               onClick={() => setIsOpen(false)}
             >
               Anulează
-            </Button>
-            <Button
+            </Button>            <Button
               type="submit"
-              disabled={createMutation.isPending || isUploading}
+              disabled={createMutation.isPending || isUploading || !formData.fisierAtas}
             >
               {createMutation.isPending ? (
                 <>

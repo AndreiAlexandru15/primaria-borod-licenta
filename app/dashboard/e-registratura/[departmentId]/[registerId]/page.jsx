@@ -2,7 +2,7 @@
  * Pagina înregistrărilor pentru un registru specific
  * @fileoverview Afișează înregistrările din registru
  */
-
+"use client"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
@@ -22,9 +22,13 @@ import { Button } from "@/components/ui/button"
 import { Plus, Download } from "lucide-react"
 import { ListaInregistrari } from "@/components/lista-inregistrari"
 import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
+import React, { useRef } from "react"
 
-export default async function RegistruInregistrariPage({ params }) {
-  const { departmentId, registerId } = await params
+export default function RegistruInregistrariPage({ params }) {
+  const { departmentId, registerId } = React.use(params)
+  const listaRef = useRef();
+  // Formatul de export selectat (default: excel)
+  const [exportFormat, setExportFormat] = React.useState("excel")
 
   return (
     <SidebarProvider>
@@ -59,8 +63,19 @@ export default async function RegistruInregistrariPage({ params }) {
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
-            </div>            <div className="flex gap-2">
-              <Button variant="outline">
+            </div>            <div className="flex gap-2 items-center">
+              <select
+                value={exportFormat}
+                onChange={e => setExportFormat(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+                style={{ height: 36 }}
+                aria-label="Format export"
+              >
+                <option value="excel">Excel (.xlsx)</option>
+                <option value="csv">CSV (.csv)</option>
+                <option value="pdf">PDF (.pdf)</option>
+              </select>
+              <Button variant="outline" onClick={() => listaRef.current?.handleExport && listaRef.current.handleExport(exportFormat)}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
@@ -69,7 +84,7 @@ export default async function RegistruInregistrariPage({ params }) {
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          <ListaInregistrari departmentId={departmentId} registerId={registerId} />
+          <ListaInregistrari ref={listaRef} departmentId={departmentId} registerId={registerId} />
         </div>
       </SidebarInset>
     </SidebarProvider>

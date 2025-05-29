@@ -5,7 +5,7 @@
 
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, forwardRef, useImperativeHandle } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,7 +19,8 @@ import {
   Hash,
   AlertTriangle,
   Building,
-  Plus
+  Plus,
+  Download
 } from "lucide-react"
 import { DataTable } from "@/components/data-table"
 import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
@@ -44,6 +45,16 @@ const getColumns = (formatDate, getStatusBadge) => [
       <div className="flex items-center gap-1 text-sm">
         <Calendar className="h-4 w-4 text-muted-foreground" />
         {formatDate(row.original.dataInregistrare)}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "numarDocument",
+    header: "Număr Document",
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <FileText className="h-4 w-4 text-muted-foreground" />
+        {row.original.numarDocument || '-'}
       </div>
     ),
   },
@@ -112,7 +123,7 @@ const getColumns = (formatDate, getStatusBadge) => [
   },
 ]
 
-export function ListaInregistrari({ departmentId, registerId }) {
+export const ListaInregistrari = forwardRef(function ListaInregistrari({ departmentId, registerId }, ref) {
   const router = useRouter()
   const queryClient = useQueryClient()
   // Query pentru înregistrări din registru
@@ -176,7 +187,6 @@ export function ListaInregistrari({ departmentId, registerId }) {
     }
     return <Badge variant="outline">{inregistrare.status || 'Activa'}</Badge>
   }
-
   const formatDate = (dateString) => {
     if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('ro-RO', {
@@ -185,8 +195,47 @@ export function ListaInregistrari({ departmentId, registerId }) {
       day: '2-digit'
     })
   }
+  
   const isLoading = isLoadingInregistrari || isLoadingRegistru || isLoadingDepartament
   const inregistrari = inregistrariData?.inregistrari || []
+  
+  // Stare pentru formatul de export selectat
+  const [exportFormat, setExportFormat] = useState("excel")
+
+  // Funcție pentru export cu format selectabil
+  const handleExport = async (formatOverride) => {
+    const formatToUse = formatOverride || "excel";
+    try {
+      const response = await axios.get(`/api/inregistrari/export?registruId=${registerId}&format=${formatToUse}`,
+        { responseType: 'blob' })
+      let mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      let ext = 'xlsx'
+      if (formatToUse === 'csv') {
+        mimeType = 'text/csv'
+        ext = 'csv'
+      } else if (formatToUse === 'pdf') {
+        mimeType = 'application/pdf'
+        ext = 'pdf'
+      }
+      const blob = new Blob([response.data], { type: mimeType })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const now = new Date()
+      const dateStr = now.toISOString().split('T')[0]
+      const fileName = `inregistrari_${registerId}_${dateStr}.${ext}`
+      link.download = fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Eroare la export:', error)
+      // Poți adăuga aici o notificare de eroare
+    }
+  }
+  // Expune funcția de export către componenta părinte
+  useImperativeHandle(ref, () => ({ handleExport }))
   
   // Prepare data for DataTable
   const tableData = useMemo(() => {
@@ -244,8 +293,22 @@ export function ListaInregistrari({ departmentId, registerId }) {
   }
 
   return (
-    <div className="space-y-6 mt-6">      {/* Header cu informații */}
-          {/* DataTable pentru înregistrări */}
+    <div className="space-y-6 mt-6">
+      {/* Selector format export */}
+      <div className="flex items-center gap-2 mb-2">
+        <label htmlFor="export-format" className="text-sm font-medium">Format export:</label>
+        <select
+          id="export-format"
+          value={exportFormat}
+          onChange={e => setExportFormat(e.target.value)}
+          className="border rounded px-2 py-1 text-sm"
+        >
+          <option value="excel">Excel (.xlsx)</option>
+          <option value="csv">CSV (.csv)</option>
+          <option value="pdf">PDF (.pdf)</option>
+        </select>
+      </div>
+      {/* DataTable pentru înregistrări */}
       {tableData.length === 0 ? (
         <Card>
           <CardContent className="p-8">
@@ -254,7 +317,8 @@ export function ListaInregistrari({ departmentId, registerId }) {
               <h3 className="text-lg font-semibold mb-2">Nicio înregistrare</h3>
               <p className="text-muted-foreground mb-4">
                 Nu există înregistrări în acest registru.
-              </p>              <AdaugaInregistrareModal 
+              </p>
+              <AdaugaInregistrareModal 
                 departamentId={departmentId}
                 registruId={registerId}
                 trigger={
@@ -268,13 +332,11 @@ export function ListaInregistrari({ departmentId, registerId }) {
           </CardContent>
         </Card>
       ) : (
-       <div>
-                    <DataTable data={tableData} columns={getColumns(formatDate, getStatusBadge)} />
-
+        <div>
+          <DataTable data={tableData} columns={getColumns(formatDate, getStatusBadge)} />
         </div>
       )}
-
     </div>
   )
-}
+})
 
