@@ -25,13 +25,6 @@ enum TipRegistru {
   intrare_iesire
 }
 
-enum TipDocument {
-  intrare
-  iesire
-  intern
-  intrare_iesire
-}
-
 enum Confidentialitate {
   public
   confidential
@@ -42,13 +35,6 @@ enum Prioritate {
   normala
   urgenta
   foarte_urgenta
-}
-
-enum StatusDocument {
-  inregistrat
-  in_lucru
-  finalizat
-  arhivat
 }
 
 enum TipProcesareAI {
@@ -69,70 +55,69 @@ enum StatusProcesareAI {
 
 // Primării și Utilizatori
 model Primaria {
-  id           String @id @default(uuid())
-  nume         String
-  codSiruta    String? @unique @map("cod_siruta")
-  judet        String?
-  localitate   String?
-  adresa       String?
-  contactInfo  Json?   @map("contact_info")
-  configurari  Json?
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid())
+  nume        String
+  codSiruta   String?  @unique @map("cod_siruta")
+  judet       String?
+  localitate  String?
+  adresa      String?
+  contactInfo Json?    @map("contact_info")
+  configurari Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relații
-  utilizatori     Utilizator[]
-  departamente    Departament[]
-  documente       Document[]
-  fonduriArhiva   FondArhiva[]
+  utilizatori   Utilizator[]
+  departamente  Departament[]
+  fonduriArhiva FondArhiva[]
 
   @@map("primarii")
 }
 
 model Utilizator {
-  id                   String @id @default(uuid())
-  email                String @unique
-  parolaHash           String @map("parola_hash")
-  nume                 String
-  prenume              String
-  functie              String?
-  telefon              String?
-  primariaId           String @map("primaria_id")
-  activ                Boolean @default(true)
-  emailVerificat       Boolean @default(false) @map("email_verificat")
-  ultimaLogare         DateTime? @map("ultima_logare")
-  tokenResetare        String? @map("token_resetare")
-  tokenResetareExpira  DateTime? @map("token_resetare_expira")
-  preferinte           Json @default("{}") 
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  parolaHash          String    @map("parola_hash")
+  nume                String
+  prenume             String
+  functie             String?
+  telefon             String?
+  primariaId          String    @map("primaria_id")
+  activ               Boolean   @default(true)
+  emailVerificat      Boolean   @default(false) @map("email_verificat")
+  ultimaLogare        DateTime? @map("ultima_logare")
+  tokenResetare       String?   @map("token_resetare")
+  tokenResetareExpira DateTime? @map("token_resetare_expira")
+  preferinte          Json      @default("{}")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
   // Relații
-  primaria             Primaria @relation(fields: [primariaId], references: [id])
-  departamente         UtilizatorDepartament[]
-  responsabilDepartamente Departament[] @relation("ResponsabilDepartament")
-  roluri               UtilizatorRol[]
-  rolAcordat           UtilizatorRol[] @relation("AcordatDe")
-  auditLog             AuditLog[]
-  istoricDocumente     IstoricDocument[] @relation("ModificatDe")
+  primaria                Primaria                @relation(fields: [primariaId], references: [id])
+  departamente            UtilizatorDepartament[]
+  responsabilDepartamente Departament[]           @relation("ResponsabilDepartament")
+  roluri                  UtilizatorRol[]
+  rolAcordat              UtilizatorRol[]         @relation("AcordatDe")
+  auditLog                AuditLog[]
+  istoricDocumente        IstoricFisier[]         @relation("ModificatDe")
 
   @@map("utilizatori")
 }
 
 // Tabelă de joncțiune pentru relația many-to-many între Utilizatori și Departamente
 model UtilizatorDepartament {
-  id            String @id @default(uuid())
-  utilizatorId  String @map("utilizator_id")
-  departamentId String @map("departament_id")
-  rolDepartament String? @map("rol_departament") // Ex: "administrator", "membru", "secretar"
-  dataAtribuire DateTime @default(now()) @map("data_atribuire")
-  activ         Boolean @default(true)
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid())
+  utilizatorId   String   @map("utilizator_id")
+  departamentId  String   @map("departament_id")
+  rolDepartament String?  @map("rol_departament") // Ex: "administrator", "membru", "secretar"
+  dataAtribuire  DateTime @default(now()) @map("data_atribuire")
+  activ          Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   // Relații
-  utilizator    Utilizator @relation(fields: [utilizatorId], references: [id], onDelete: Cascade)
-  departament   Departament @relation(fields: [departamentId], references: [id], onDelete: Cascade)
+  utilizator  Utilizator  @relation(fields: [utilizatorId], references: [id], onDelete: Cascade)
+  departament Departament @relation(fields: [departamentId], references: [id], onDelete: Cascade)
 
   @@unique([utilizatorId, departamentId])
   @@map("utilizator_departamente")
@@ -140,80 +125,77 @@ model UtilizatorDepartament {
 
 // Fonduri și Organizare Arhivistică
 model FondArhiva {
-  id                    String @id @default(uuid())
-  primariaId            String @map("primaria_id")
-  nume                  String
-  cod                   String @unique
-  descriere             String?
-  perioadaAcoperire     String? @map("perioada_acoperire") // Va fi stocat ca string pentru PostgreSQL DATERANGE
-  status                StatusFond @default(activ)
-  metadateArhivistice   Json? @map("metadate_arhivistice")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                  String     @id @default(uuid())
+  primariaId          String     @map("primaria_id")
+  nume                String
+  cod                 String     @unique
+  descriere           String?
+  perioadaAcoperire   String?    @map("perioada_acoperire") // Va fi stocat ca string pentru PostgreSQL DATERANGE
+  status              StatusFond @default(activ)
+  metadateArhivistice Json?      @map("metadate_arhivistice")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
 
   // Relații
-  primaria              Primaria @relation(fields: [primariaId], references: [id])
-  diagrameOrganizare    DiagramaOrganizare[]
-  documente             Document[]
+  primaria           Primaria             @relation(fields: [primariaId], references: [id])
+  diagrameOrganizare DiagramaOrganizare[]
 
   @@map("fonduri_arhiva")
 }
 
 model DiagramaOrganizare {
-  id                    String @id @default(uuid())
-  fondArhivaId          String @map("fond_arhiva_id")
-  nume                  String
-  versiune              Int @default(1)
-  structura             Json
-  perioadaValabilitate  String? @map("perioada_valabilitate") // PostgreSQL DATERANGE
-  activa                Boolean @default(true)
-  createdAt             DateTime @default(now()) @map("created_at")
+  id                   String   @id @default(uuid())
+  fondArhivaId         String   @map("fond_arhiva_id")
+  nume                 String
+  versiune             Int      @default(1)
+  structura            Json
+  perioadaValabilitate String?  @map("perioada_valabilitate") // PostgreSQL DATERANGE
+  activa               Boolean  @default(true)
+  createdAt            DateTime @default(now()) @map("created_at")
 
   // Relații
-  fondArhiva            FondArhiva @relation(fields: [fondArhivaId], references: [id])
+  fondArhiva FondArhiva @relation(fields: [fondArhivaId], references: [id])
 
   @@map("diagrame_organizare")
 }
 
 // Departamente și Registre
 model Departament {
-  id           String @id @default(uuid())
-  primariaId   String @map("primaria_id")
-  nume         String
-  cod          String
-  descriere    String?
-  responsabilId String? @map("responsabil_id")
-  telefon      String?
-  email        String?
-  activ        Boolean @default(true)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  primariaId    String   @map("primaria_id")
+  nume          String
+  cod           String
+  descriere     String?
+  responsabilId String?  @map("responsabil_id")
+  telefon       String?
+  email         String?
+  activ         Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   // Relații
-  primaria     Primaria @relation(fields: [primariaId], references: [id])
-  responsabil  Utilizator? @relation("ResponsabilDepartament", fields: [responsabilId], references: [id])
-  utilizatori  UtilizatorDepartament[]
-  registre     Registru[]
-  documente    Document[]
+  primaria    Primaria                @relation(fields: [primariaId], references: [id])
+  responsabil Utilizator?             @relation("ResponsabilDepartament", fields: [responsabilId], references: [id])
+  utilizatori UtilizatorDepartament[]
+  registre    Registru[]
 
   @@unique([primariaId, cod])
   @@map("departamente")
 }
 
 model Registru {
-  id           String @id @default(uuid())
-  departamentId String @map("departament_id")
-  nume         String
-  cod          String
-  descriere    String?
-  tipRegistru  TipRegistru @map("tip_registru")
-  activ        Boolean @default(true)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id            String      @id @default(uuid())
+  departamentId String      @map("departament_id")
+  nume          String
+  cod           String
+  descriere     String?
+  tipRegistru   TipRegistru @map("tip_registru")
+  activ         Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   // Relații
-  departament  Departament @relation(fields: [departamentId], references: [id])
-  documente    Document[]
+  departament  Departament    @relation(fields: [departamentId], references: [id])
   inregistrari Inregistrare[]
 
   @@unique([departamentId, cod])
@@ -222,139 +204,102 @@ model Registru {
 
 // Înregistrări în Registratură
 model Inregistrare {
-  id                  String @id @default(uuid())
-  registruId          String @map("registru_id")
-  numarInregistrare   String @map("numar_inregistrare")
-  dataInregistrare    DateTime @default(now()) @map("data_inregistrare") @db.Date
-  expeditor           String?
-  destinatar          String?
-  obiect              String
-  observatii          String?
-  urgent              Boolean @default(false)
-  confidential        Boolean @default(false)
-  status              String @default("activa") // activa, finalizata, anulata
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                String             @id @default(uuid())
+  registruId        String             @map("registru_id")
+  numarInregistrare String             @map("numar_inregistrare")
+  dataInregistrare  DateTime           @default(now()) @map("data_inregistrare") @db.Date
+  expeditor         String?
+  destinatar        String?
+  obiect            String
+  observatii        String?
+  urgent            Boolean            @default(false)
+  confidential      Boolean            @default(false)
+  status            StatusInregistrare @default(activa)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   // Relații
-  registru            Registru @relation(fields: [registruId], references: [id])
-  documente           InregistrareDocument[]
+  registru Registru @relation(fields: [registruId], references: [id])
+  fisiere  Fisier[]
 
   @@unique([registruId, numarInregistrare, dataInregistrare], name: "unique_registration")
   @@map("inregistrari")
 }
 
-// Tabelă de joncțiune între Înregistrări și Documente
-model InregistrareDocument {
-  id               String @id @default(uuid())
-  inregistrareId   String @map("inregistrare_id")
-  documentId       String @map("document_id")
-  ordinea          Int @default(1)
-  createdAt        DateTime @default(now()) @map("created_at")
-
-  // Relații
-  inregistrare     Inregistrare @relation(fields: [inregistrareId], references: [id], onDelete: Cascade)
-  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@unique([inregistrareId, documentId])
-  @@map("inregistrare_documente")
+enum StatusInregistrare {
+  activa
+  finalizata
+  anulata
 }
 
 // Categorii de documente
 model CategorieDocument {
-  id                      String @id @default(uuid())
-  nume                    String
-  cod                     String
-  descriere               String?
-  perioadaRetentie        Int? @map("perioada_retentie") // în ani
+  id                       String             @id @default(uuid())
+  nume                     String
+  cod                      String
+  descriere                String?
+  perioadaRetentie         Int?               @map("perioada_retentie") // în ani
   confidentialitateDefault Confidentialitate? @map("confidentialitate_default")
-  metadateObligatorii     Json? @map("metadate_obligatorii")
-  active                  Boolean @default(true)
-  createdAt               DateTime @default(now()) @map("created_at")
+  metadateObligatorii      Json?              @map("metadate_obligatorii")
+  active                   Boolean            @default(true)
+  createdAt                DateTime           @default(now()) @map("created_at")
 
   // Relații
-  documente               Document[]
+  fisiere Fisier[]
 
   @@map("categorii_documente")
 }
 
-// Documente
-model Document {
-  id                  String @id @default(uuid())
-  primariaId          String @map("primaria_id")
-  departamentId       String? @map("departament_id") // Optional pentru documente neinregistrate
-  registruId          String? @map("registru_id") // Optional pentru documente neinregistrate
-  fondArhivaId        String? @map("fond_arhiva_id")
-  numarInregistrare   String? @map("numar_inregistrare") // Optional pentru documente neinregistrate
-  dataInregistrare    DateTime @map("data_inregistrare") @db.Date
-  expeditor           String?
-  destinatar          String?
-  subiect             String
-  categorieId         String? @map("categorie_id")
-  tipDocument         TipDocument @map("tip_document")
-  confidentialitate   Confidentialitate @default(public)
-  prioritate          Prioritate @default(normala)
-  status              StatusDocument @default(inregistrat)
-  termene             Json?
-  observatii          String?
-  codBare             String? @unique @map("cod_bare")
-  qrCode              String? @map("qr_code")
-  metadate            Json?
-  caleDocument        String? @map("cale_document")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
-
-  // Relații
-  primaria            Primaria @relation(fields: [primariaId], references: [id])
-  departament         Departament? @relation(fields: [departamentId], references: [id])
-  registru            Registru? @relation(fields: [registruId], references: [id])
-  fondArhiva          FondArhiva? @relation(fields: [fondArhivaId], references: [id])
-  categorie           CategorieDocument? @relation(fields: [categorieId], references: [id])
-  fisiere             Fisier[]
-  auditLog            AuditLog[]
-  istoric             IstoricDocument[]
-  aiProcesari         AIProcesare[]
-  inregistrari        InregistrareDocument[]
-
-  @@unique([primariaId, numarInregistrare, dataInregistrare], name: "unique_registered_document", map: "unique_registered_document")
-  @@map("documente")
-}
-
 // Fișiere și anexe
 model Fisier {
-  id              String @id @default(uuid())
-  documentId      String @map("document_id")
-  numeOriginal    String @map("nume_original")
-  numeFisierDisk  String @map("nume_fisier_disk")
-  extensie        String?
-  marime          BigInt?
-  tipMime         String? @map("tip_mime")
-  hashFisier      String? @map("hash_fisier")
-  caleRelativa    String @map("cale_relativa")
-  scanat          Boolean @default(false)
-  ocrProcesat     Boolean @default(false) @map("ocr_procesat")
-  continutText    String? @map("continut_text")
-  miniaturaPath   String? @map("miniatura_path")
-  metadate        Json?
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id             String  @id @default(uuid())
+  inregistrareId String? @map("inregistrare_id") // Opțional - un fișier poate exista fără înregistrare
+  categorieId    String? @map("categorie_id")
+  numeOriginal   String  @map("nume_original")
+  numeFisierDisk String  @map("nume_fisier_disk")
+  extensie       String?
+  marime         BigInt?
+  tipMime        String? @map("tip_mime")
+  hashFisier     String? @map("hash_fisier")
+  caleRelativa   String  @map("cale_relativa")
+  scanat         Boolean @default(false)
+  ocrProcesat    Boolean @default(false) @map("ocr_procesat")
+  continutText   String? @map("continut_text")
+  miniaturaPath  String? @map("miniatura_path")
+
+  // Informații despre conținutul documentului (specifice fișierului)
+  subiect           String? // Subiectul documentului din fișier
+  dataFisier        DateTime? @map("data_fisier") @db.Date // Data documentului din fișier
+  confidentialitate Confidentialitate @default(public)
+  prioritate        Prioritate        @default(normala)
+  termene           Json?
+  codBare           String?           @unique @map("cod_bare")
+  qrCode            String?           @map("qr_code")
+
+  metadate  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relații
-  document        Document @relation(fields: [documentId], references: [id])
+  inregistrare Inregistrare?      @relation(fields: [inregistrareId], references: [id])
+  categorie    CategorieDocument? @relation(fields: [categorieId], references: [id])
+  auditLog     AuditLog[]
+  istoric      IstoricFisier[]
+  procesariAI  AIProcesare[]
 
   @@map("fisiere")
 }
 
 // Roluri și Permisiuni
 model Rol {
-  id          String @id @default(uuid())
-  nume        String @unique
-  descriere   String?
-  nivelAcces  Int @default(1) @map("nivel_acces")
-  activ       Boolean @default(true)
-  sistem      Boolean @default(false)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid())
+  nume       String   @unique
+  descriere  String?
+  nivelAcces Int      @default(1) @map("nivel_acces")
+  activ      Boolean  @default(true)
+  sistem     Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Relații
   permisiuni  RolPermisiune[]
@@ -364,43 +309,43 @@ model Rol {
 }
 
 model Permisiune {
-  id          String @id @default(uuid())
-  nume        String @unique
-  descriere   String?
-  modul       String
-  actiune     String
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  nume      String   @unique
+  descriere String?
+  modul     String
+  actiune   String
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relații
-  roluri      RolPermisiune[]
+  roluri RolPermisiune[]
 
   @@map("permisiuni")
 }
 
 model RolPermisiune {
-  id            String @id @default(uuid())
-  rolId         String @map("rol_id")
-  permisiuneId  String @map("permisiune_id")
+  id           String @id @default(uuid())
+  rolId        String @map("rol_id")
+  permisiuneId String @map("permisiune_id")
 
   // Relații
-  rol           Rol @relation(fields: [rolId], references: [id], onDelete: Cascade)
-  permisiune    Permisiune @relation(fields: [permisiuneId], references: [id], onDelete: Cascade)
+  rol        Rol        @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permisiune Permisiune @relation(fields: [permisiuneId], references: [id], onDelete: Cascade)
 
   @@unique([rolId, permisiuneId])
   @@map("rol_permisiuni")
 }
 
 model UtilizatorRol {
-  id            String @id @default(uuid())
-  utilizatorId  String @map("utilizator_id")
-  rolId         String @map("rol_id")
-  acordatDe     String? @map("acordat_de")
-  acordatLa     DateTime @default(now()) @map("acordat_la")
-  activ         Boolean @default(true)
+  id           String   @id @default(uuid())
+  utilizatorId String   @map("utilizator_id")
+  rolId        String   @map("rol_id")
+  acordatDe    String?  @map("acordat_de")
+  acordatLa    DateTime @default(now()) @map("acordat_la")
+  activ        Boolean  @default(true)
 
   // Relații
-  utilizator    Utilizator @relation(fields: [utilizatorId], references: [id], onDelete: Cascade)
-  rol           Rol @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  utilizator          Utilizator  @relation(fields: [utilizatorId], references: [id], onDelete: Cascade)
+  rol                 Rol         @relation(fields: [rolId], references: [id], onDelete: Cascade)
   acordatDeUtilizator Utilizator? @relation("AcordatDe", fields: [acordatDe], references: [id])
 
   @@unique([utilizatorId, rolId])
@@ -409,50 +354,51 @@ model UtilizatorRol {
 
 // Audit și Istoric
 model AuditLog {
-  id          String @id @default(uuid())
-  utilizatorId String? @map("utilizator_id")
-  documentId  String? @map("document_id")
-  actiune     String
-  detalii     Json?
-  ipAddress   String? @map("ip_address")
-  userAgent   String? @map("user_agent")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid())
+  utilizatorId   String?  @map("utilizator_id")
+  fisierId       String?  @map("fisier_id")
+  inregistrareId String?  @map("inregistrare_id")
+  actiune        String
+  detalii        Json?
+  ipAddress      String?  @map("ip_address")
+  userAgent      String?  @map("user_agent")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   // Relații
-  utilizator  Utilizator? @relation(fields: [utilizatorId], references: [id])
-  document    Document? @relation(fields: [documentId], references: [id])
+  utilizator Utilizator? @relation(fields: [utilizatorId], references: [id])
+  fisier     Fisier?     @relation(fields: [fisierId], references: [id])
 
   @@map("audit_log")
 }
 
-model IstoricDocument {
-  id          String @id @default(uuid())
-  documentId  String @map("document_id")
+model IstoricFisier {
+  id          String   @id @default(uuid())
+  fisierId    String   @map("fisier_id")
   versiune    Int
   modificari  Json
-  modificatDe String @map("modificat_de")
+  modificatDe String   @map("modificat_de")
   createdAt   DateTime @default(now()) @map("created_at")
 
   // Relații
-  document    Document @relation(fields: [documentId], references: [id])
-  utilizator  Utilizator @relation("ModificatDe", fields: [modificatDe], references: [id])
+  fisier     Fisier     @relation(fields: [fisierId], references: [id])
+  utilizator Utilizator @relation("ModificatDe", fields: [modificatDe], references: [id])
 
-  @@map("istoric_documente")
+  @@map("istoric_fisiere")
 }
 
 // AI Procesări
 model AIProcesare {
-  id            String @id @default(uuid())
-  documentId    String @map("document_id")
-  tipProcesare  TipProcesareAI @map("tip_procesare")
-  status        StatusProcesareAI @default(pending)
-  caleRezultat  String? @map("cale_rezultat")
-  confidenta    Float?
-  createdAt     DateTime @default(now()) @map("created_at")
-  completedAt   DateTime? @map("completed_at")
+  id           String            @id @default(uuid())
+  fisierId     String            @map("fisier_id")
+  tipProcesare TipProcesareAI    @map("tip_procesare")
+  status       StatusProcesareAI @default(pending)
+  caleRezultat String?           @map("cale_rezultat")
+  confidenta   Float?
+  createdAt    DateTime          @default(now()) @map("created_at")
+  completedAt  DateTime?         @map("completed_at")
 
   // Relații
-  document      Document @relation(fields: [documentId], references: [id])
+  fisier Fisier @relation(fields: [fisierId], references: [id])
 
   @@map("ai_procesari")
 }

@@ -22,9 +22,7 @@ import {
   Plus
 } from "lucide-react"
 import { DataTable } from "@/components/data-table"
-import { AdaugaDocumentModal } from "@/components/adauga-document-modal"
 import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
-import { crudNotifications, notifyError } from "@/lib/notifications"
 import axios from "axios"
 
 // Definirea coloanelor pentru DataTable

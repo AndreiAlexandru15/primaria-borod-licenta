@@ -5,22 +5,19 @@ CREATE TYPE "StatusFond" AS ENUM ('activ', 'inactiv', 'arhivat');
 CREATE TYPE "TipRegistru" AS ENUM ('intrare', 'iesire', 'intern', 'intrare_iesire');
 
 -- CreateEnum
-CREATE TYPE "TipDocument" AS ENUM ('intrare', 'iesire', 'intern', 'intrare_iesire');
-
--- CreateEnum
 CREATE TYPE "Confidentialitate" AS ENUM ('public', 'confidential', 'secret');
 
 -- CreateEnum
 CREATE TYPE "Prioritate" AS ENUM ('normala', 'urgenta', 'foarte_urgenta');
 
 -- CreateEnum
-CREATE TYPE "StatusDocument" AS ENUM ('inregistrat', 'in_lucru', 'finalizat', 'arhivat');
-
--- CreateEnum
 CREATE TYPE "TipProcesareAI" AS ENUM ('ocr', 'clasificare', 'extractie_entitati', 'rezumat');
 
 -- CreateEnum
 CREATE TYPE "StatusProcesareAI" AS ENUM ('pending', 'processing', 'completed', 'failed');
+
+-- CreateEnum
+CREATE TYPE "StatusInregistrare" AS ENUM ('activa', 'finalizata', 'anulata');
 
 -- CreateTable
 CREATE TABLE "primarii" (
@@ -137,6 +134,25 @@ CREATE TABLE "registre" (
 );
 
 -- CreateTable
+CREATE TABLE "inregistrari" (
+    "id" TEXT NOT NULL,
+    "registru_id" TEXT NOT NULL,
+    "numar_inregistrare" TEXT NOT NULL,
+    "data_inregistrare" DATE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "expeditor" TEXT,
+    "destinatar" TEXT,
+    "obiect" TEXT NOT NULL,
+    "observatii" TEXT,
+    "urgent" BOOLEAN NOT NULL DEFAULT false,
+    "confidential" BOOLEAN NOT NULL DEFAULT false,
+    "status" "StatusInregistrare" NOT NULL DEFAULT 'activa',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "inregistrari_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "categorii_documente" (
     "id" TEXT NOT NULL,
     "nume" TEXT NOT NULL,
@@ -152,38 +168,10 @@ CREATE TABLE "categorii_documente" (
 );
 
 -- CreateTable
-CREATE TABLE "documente" (
-    "id" TEXT NOT NULL,
-    "primaria_id" TEXT NOT NULL,
-    "departament_id" TEXT,
-    "registru_id" TEXT,
-    "fond_arhiva_id" TEXT,
-    "numar_inregistrare" TEXT,
-    "data_inregistrare" DATE NOT NULL,
-    "expeditor" TEXT,
-    "destinatar" TEXT,
-    "subiect" TEXT NOT NULL,
-    "categorie_id" TEXT,
-    "tip_document" "TipDocument" NOT NULL,
-    "confidentialitate" "Confidentialitate" NOT NULL DEFAULT 'public',
-    "prioritate" "Prioritate" NOT NULL DEFAULT 'normala',
-    "status" "StatusDocument" NOT NULL DEFAULT 'inregistrat',
-    "termene" JSONB,
-    "observatii" TEXT,
-    "cod_bare" TEXT,
-    "qr_code" TEXT,
-    "metadate" JSONB,
-    "cale_document" TEXT,
-    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "documente_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "fisiere" (
     "id" TEXT NOT NULL,
-    "document_id" TEXT NOT NULL,
+    "inregistrare_id" TEXT,
+    "categorie_id" TEXT,
     "nume_original" TEXT NOT NULL,
     "nume_fisier_disk" TEXT NOT NULL,
     "extensie" TEXT,
@@ -195,6 +183,13 @@ CREATE TABLE "fisiere" (
     "ocr_procesat" BOOLEAN NOT NULL DEFAULT false,
     "continut_text" TEXT,
     "miniatura_path" TEXT,
+    "subiect" TEXT,
+    "data_fisier" DATE,
+    "confidentialitate" "Confidentialitate" NOT NULL DEFAULT 'public',
+    "prioritate" "Prioritate" NOT NULL DEFAULT 'normala',
+    "termene" JSONB,
+    "cod_bare" TEXT,
+    "qr_code" TEXT,
     "metadate" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -253,7 +248,8 @@ CREATE TABLE "utilizator_roluri" (
 CREATE TABLE "audit_log" (
     "id" TEXT NOT NULL,
     "utilizator_id" TEXT,
-    "document_id" TEXT,
+    "fisier_id" TEXT,
+    "inregistrare_id" TEXT,
     "actiune" TEXT NOT NULL,
     "detalii" JSONB,
     "ip_address" TEXT,
@@ -264,21 +260,21 @@ CREATE TABLE "audit_log" (
 );
 
 -- CreateTable
-CREATE TABLE "istoric_documente" (
+CREATE TABLE "istoric_fisiere" (
     "id" TEXT NOT NULL,
-    "document_id" TEXT NOT NULL,
+    "fisier_id" TEXT NOT NULL,
     "versiune" INTEGER NOT NULL,
     "modificari" JSONB NOT NULL,
     "modificat_de" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "istoric_documente_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "istoric_fisiere_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "ai_procesari" (
     "id" TEXT NOT NULL,
-    "document_id" TEXT NOT NULL,
+    "fisier_id" TEXT NOT NULL,
     "tip_procesare" "TipProcesareAI" NOT NULL,
     "status" "StatusProcesareAI" NOT NULL DEFAULT 'pending',
     "cale_rezultat" TEXT,
@@ -308,10 +304,10 @@ CREATE UNIQUE INDEX "departamente_primaria_id_cod_key" ON "departamente"("primar
 CREATE UNIQUE INDEX "registre_departament_id_cod_key" ON "registre"("departament_id", "cod");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "documente_cod_bare_key" ON "documente"("cod_bare");
+CREATE UNIQUE INDEX "inregistrari_registru_id_numar_inregistrare_data_inregistra_key" ON "inregistrari"("registru_id", "numar_inregistrare", "data_inregistrare");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "unique_registered_document" ON "documente"("primaria_id", "numar_inregistrare", "data_inregistrare");
+CREATE UNIQUE INDEX "fisiere_cod_bare_key" ON "fisiere"("cod_bare");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "roluri_nume_key" ON "roluri"("nume");
@@ -350,22 +346,13 @@ ALTER TABLE "departamente" ADD CONSTRAINT "departamente_responsabil_id_fkey" FOR
 ALTER TABLE "registre" ADD CONSTRAINT "registre_departament_id_fkey" FOREIGN KEY ("departament_id") REFERENCES "departamente"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "documente" ADD CONSTRAINT "documente_primaria_id_fkey" FOREIGN KEY ("primaria_id") REFERENCES "primarii"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "inregistrari" ADD CONSTRAINT "inregistrari_registru_id_fkey" FOREIGN KEY ("registru_id") REFERENCES "registre"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "documente" ADD CONSTRAINT "documente_departament_id_fkey" FOREIGN KEY ("departament_id") REFERENCES "departamente"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "fisiere" ADD CONSTRAINT "fisiere_inregistrare_id_fkey" FOREIGN KEY ("inregistrare_id") REFERENCES "inregistrari"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "documente" ADD CONSTRAINT "documente_registru_id_fkey" FOREIGN KEY ("registru_id") REFERENCES "registre"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "documente" ADD CONSTRAINT "documente_fond_arhiva_id_fkey" FOREIGN KEY ("fond_arhiva_id") REFERENCES "fonduri_arhiva"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "documente" ADD CONSTRAINT "documente_categorie_id_fkey" FOREIGN KEY ("categorie_id") REFERENCES "categorii_documente"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "fisiere" ADD CONSTRAINT "fisiere_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "documente"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "fisiere" ADD CONSTRAINT "fisiere_categorie_id_fkey" FOREIGN KEY ("categorie_id") REFERENCES "categorii_documente"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "rol_permisiuni" ADD CONSTRAINT "rol_permisiuni_rol_id_fkey" FOREIGN KEY ("rol_id") REFERENCES "roluri"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -386,13 +373,13 @@ ALTER TABLE "utilizator_roluri" ADD CONSTRAINT "utilizator_roluri_acordat_de_fke
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_utilizator_id_fkey" FOREIGN KEY ("utilizator_id") REFERENCES "utilizatori"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "documente"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_fisier_id_fkey" FOREIGN KEY ("fisier_id") REFERENCES "fisiere"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "istoric_documente" ADD CONSTRAINT "istoric_documente_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "documente"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "istoric_fisiere" ADD CONSTRAINT "istoric_fisiere_fisier_id_fkey" FOREIGN KEY ("fisier_id") REFERENCES "fisiere"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "istoric_documente" ADD CONSTRAINT "istoric_documente_modificat_de_fkey" FOREIGN KEY ("modificat_de") REFERENCES "utilizatori"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "istoric_fisiere" ADD CONSTRAINT "istoric_fisiere_modificat_de_fkey" FOREIGN KEY ("modificat_de") REFERENCES "utilizatori"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ai_procesari" ADD CONSTRAINT "ai_procesari_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "documente"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ai_procesari" ADD CONSTRAINT "ai_procesari_fisier_id_fkey" FOREIGN KEY ("fisier_id") REFERENCES "fisiere"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -1,19 +1,25 @@
 /**
- * API Route pentru operațiuni pe documente/înregistrări
- * @fileoverview GET (lista) și POST (creare) pentru documente
+ * API Route pentru operațiuni pe înregistrări
+ * @fileoverview GET (lista) și POST (creare) pentru înregistrări
  */
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 /**
  * GET /api/documente
- * Obține lista documentelor cu filtrare
+ * Obține lista înregistrărilor cu filtrare
  * Parametri:
- * - registruId: pentru documente înregistrate într-un registru specific
- * - neinregistrate: pentru documente care nu sunt înregistrate în niciun registru
- * - toate: pentru toate documentele (dashboard)
+ * - registruId: pentru înregistrări dintr-un registru specific
+ * - toate: pentru toate înregistrările (dashboard)
  */
 export async function GET(request) {
   try {
@@ -35,20 +41,21 @@ export async function GET(request) {
 
     // Construiește filtrul pentru query
     let whereClause = {
-      primariaId: primariaId
+      registru: {
+        departament: {
+          primariaId: primariaId
+        }
+      }
     }
 
     if (registruId) {
-      // Doar documentele înregistrate în registrul specific
+      // Doar înregistrările din registrul specific
       whereClause.registruId = registruId
-    } else if (neinregistrate) {
-      // Doar documentele care nu sunt înregistrate în niciun registru
-      whereClause.registruId = null
     } else if (toate) {
-      // Toate documentele - fără filtru adițional
+      // Toate înregistrările - fără filtru adițional pe registru
     } else {
       return NextResponse.json(
-        { error: 'Trebuie specificat unul din parametrii: registruId, neinregistrate sau toate' },
+        { error: 'Trebuie specificat unul din parametrii: registruId sau toate' },
         { status: 400 }
       )
     }
@@ -59,27 +66,21 @@ export async function GET(request) {
     const skip = (page - 1) * limit
 
     const [documente, total] = await Promise.all([
-      prisma.document.findMany({
+      prisma.inregistrare.findMany({
         where: whereClause,
         include: {
-          departament: {
-            select: {
-              id: true,
-              nume: true,
-              cod: true
-            }
-          },
           registru: {
             select: {
               id: true,
               nume: true,
-              cod: true
-            }
-          },
-          categorie: {
-            select: {
-              id: true,
-              nume: true
+              cod: true,
+              departament: {
+                select: {
+                  id: true,
+                  nume: true,
+                  cod: true
+                }
+              }
             }
           },
           _count: {
@@ -89,20 +90,18 @@ export async function GET(request) {
           }
         },
         orderBy: [
-          // Prioritizează documentele neinregistrate când se cer toate
-          ...(toate ? [{ registruId: 'asc' }] : []),
           { dataInregistrare: 'desc' },
           { createdAt: 'desc' }
         ],
         skip,
         take: limit
       }),
-      prisma.document.count({
+      prisma.inregistrare.count({
         where: whereClause
       })
-    ])
-
-    return NextResponse.json({
+    ])    
+    
+    return NextResponse.json(serializeBigInt({
       success: true,
       data: documente,
       pagination: {
@@ -111,7 +110,7 @@ export async function GET(request) {
         total,
         pages: Math.ceil(total / limit)
       }
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la obținerea documentelor:', error)
@@ -124,7 +123,7 @@ export async function GET(request) {
 
 /**
  * POST /api/documente
- * Creează un document nou (înregistrat sau neinregistrat)
+ * Creează o înregistrare nouă
  */
 export async function POST(request) {
   try {
@@ -135,127 +134,103 @@ export async function POST(request) {
     if (!userId || !primariaId) {
       return NextResponse.json(
         { error: 'Nu ești autentificat' },
-        { status: 401 }
-      )
+        { status: 401 }      )
     }
 
     const data = await request.json()
     
     // Validare câmpuri obligatorii
-    const requiredFields = ['subiect', 'tipDocument']
+    const requiredFields = ['obiect', 'registruId']
     const missingFields = requiredFields.filter(field => !data[field])
     
     if (missingFields.length > 0) {
       return NextResponse.json(
         { error: `Câmpurile următoare sunt obligatorii: ${missingFields.join(', ')}` },
-        { status: 400 }
+        { status: 400 }      )
+    }
+
+    // Verifică dacă registrul există
+    const registru = await prisma.registru.findFirst({
+      where: {
+        id: data.registruId,
+        departament: {
+          primariaId: primariaId
+        }
+      },
+      include: {
+        departament: true
+      }
+    })
+
+    if (!registru) {
+      return NextResponse.json(
+        { error: 'Registrul specificat nu există' },
+        { status: 404 }
       )
     }
 
-    let documentData = {
-      primariaId,
-      subiect: data.subiect,
-      tipDocument: data.tipDocument,
-      expeditor: data.expeditor,
-      destinatar: data.destinatar,
-      confidentialitate: data.confidentialitate || 'public',
-      prioritate: data.prioritate || 'normala',
-      observatii: data.observatii,
-      metadate: data.metadate || {}
+    // Generează numărul de înregistrare
+    const dataInregistrare = data.dataInregistrare ? new Date(data.dataInregistrare) : new Date()
+    const anul = dataInregistrare.getFullYear()
+    
+    // Obține ultimul număr pentru anul curent în acest registru
+    const ultimaInregistrare = await prisma.inregistrare.findFirst({
+      where: {
+        registruId: data.registruId,
+        dataInregistrare: {
+          gte: new Date(`${anul}-01-01`),
+          lt: new Date(`${anul + 1}-01-01`)
+        }
+      },
+      orderBy: {
+        numarInregistrare: 'desc'
+      }
+    })
+
+    let numarInregistrare
+    if (ultimaInregistrare) {
+      const ultimulNumar = parseInt(ultimaInregistrare.numarInregistrare.split('/')[0])
+      numarInregistrare = `${ultimulNumar + 1}/${registru.cod || 'REG'}/${anul}`
+    } else {
+      numarInregistrare = `1/${registru.cod || 'REG'}/${anul}`
     }
 
-    // Dacă registruId este specificat, înregistrează documentul
-    if (data.registruId) {
-      // Verifică dacă registrul există
-      const registru = await prisma.registru.findFirst({
-        where: {
-          id: data.registruId,
-          departament: {
-            primariaId: primariaId
-          }
-        },
-        include: {
-          departament: true
-        }
-      })
-
-      if (!registru) {
-        return NextResponse.json(
-          { error: 'Registrul specificat nu există' },
-          { status: 404 }
-        )
-      }
-
-      // Generează numărul de înregistrare
-      const dataInregistrare = data.dataInregistrare ? new Date(data.dataInregistrare) : new Date()
-      const anul = dataInregistrare.getFullYear()
-      
-      // Obține ultimul număr pentru anul curent în acest registru
-      const ultimulDocument = await prisma.document.findFirst({
-        where: {
-          registruId: data.registruId,
-          dataInregistrare: {
-            gte: new Date(`${anul}-01-01`),
-            lt: new Date(`${anul + 1}-01-01`)
-          }
-        },
-        orderBy: {
-          numarInregistrare: 'desc'
-        }
-      })
-
-      let numarInregistrare
-      if (ultimulDocument) {
-        const ultimulNumar = parseInt(ultimulDocument.numarInregistrare.split('/')[0])
-        numarInregistrare = `${ultimulNumar + 1}/${registru.cod || 'REG'}/${anul}`
-      } else {
-        numarInregistrare = `1/${registru.cod || 'REG'}/${anul}`
-      }
-
-      // Adaugă datele pentru document înregistrat
-      documentData = {
-        ...documentData,
+    // Creează înregistrarea
+    const inregistrareNoua = await prisma.inregistrare.create({
+      data: {
         registruId: data.registruId,
-        departamentId: registru.departamentId,
         numarInregistrare,
         dataInregistrare,
-        status: 'inregistrat'
-      }
-    } else {
-      // Document neinregistrat - nu are registru, departament, număr de înregistrare
-      documentData = {
-        ...documentData,
-        dataInregistrare: data.dataInregistrare ? new Date(data.dataInregistrare) : new Date(),
-        status: data.status || 'inregistrat' // poate fi alt status pentru documente neinregistrate
-      }
-    }
-
-    // Creează documentul
-    const documentNou = await prisma.document.create({
-      data: documentData,
+        expeditor: data.expeditor,
+        destinatar: data.destinatar,
+        obiect: data.obiect,
+        observatii: data.observatii,
+        urgent: data.urgent || false,
+        confidential: data.confidential || false,
+        status: 'activa'
+      },
       include: {
-        departament: data.registruId ? {
+        registru: {
           select: {
             id: true,
             nume: true,
-            cod: true
+            cod: true,
+            departament: {
+              select: {
+                id: true,
+                nume: true,
+                cod: true
+              }
+            }
           }
-        } : false,
-        registru: data.registruId ? {
-          select: {
-            id: true,
-            nume: true,
-            cod: true
-          }
-        } : false
-      }
-    })
+        }
+      }    })
 
-    return NextResponse.json({
+    return NextResponse.json(serializeBigInt({
       success: true,
-      data: documentNou,
-      message: data.registruId ? 'Document înregistrat cu succes' : 'Document creat cu succes'
-    })
+      data: inregistrareNoua,
+      message: 'Înregistrare creată cu succes'
+    }))
 
   } catch (error) {
     console.error('Eroare la crearea documentului:', error)

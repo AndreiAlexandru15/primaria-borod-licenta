@@ -7,6 +7,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 /**
  * GET /api/registru?departmentId={id}
  * Obține registrele unui departament
@@ -46,15 +53,17 @@ export async function GET(request) {
       return NextResponse.json(
         { error: 'Departamentul nu a fost găsit' },
         { status: 404 }
-      )
-    }    // Obține registrele departamentului
+      )    }
+
+    // Obține registrele departamentului
     const registre = await prisma.registru.findMany({
       where: {
         departamentId: departmentId
-      },      include: {
+      },
+      include: {
         _count: {
           select: {
-            documente: true
+            inregistrari: true
           }
         }
       },
@@ -63,10 +72,10 @@ export async function GET(request) {
       }
     })
 
-    return NextResponse.json({
+    return NextResponse.json(serializeBigInt({
       success: true,
       data: registre
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la obținerea registrelor:', error)
@@ -168,8 +177,7 @@ export async function POST(request) {
     }
 
     // Creează registrul
-    const registruNou = await prisma.registru.create({
-      data: {
+    const registruNou = await prisma.registru.create({      data: {
         departamentId: departamentId,
         nume: nume.trim(),
         cod: cod.trim(),
@@ -180,7 +188,7 @@ export async function POST(request) {
       include: {
         _count: {
           select: {
-            documente: true
+            inregistrari: true
           }
         }
       }
@@ -200,11 +208,11 @@ export async function POST(request) {
       }
     })
 
-    return NextResponse.json({
+    return NextResponse.json(serializeBigInt({
       success: true,
       message: 'Registru creat cu succes',
       data: registruNou
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la crearea registrului:', error)

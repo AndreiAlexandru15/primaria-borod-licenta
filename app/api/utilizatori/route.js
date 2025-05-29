@@ -7,13 +7,19 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 /**
  * GET /api/utilizatori
  * Obține toți utilizatorii pentru primăria curentă
  */
 export async function GET(request) {
-  try {
-    const headersList = await headers()
+  try {    const headersList = await headers()
     const userId = headersList.get('x-user-id')
     const primariaId = headersList.get('x-primaria-id')
 
@@ -22,7 +28,9 @@ export async function GET(request) {
         { error: 'Nu ești autentificat' },
         { status: 401 }
       )
-    }    // Obține utilizatorii pentru primăria curentă
+    }
+
+    // Obține utilizatorii pentru primăria curentă
     const utilizatori = await prisma.utilizator.findMany({
       where: {
         primariaId: primariaId,
@@ -63,12 +71,11 @@ export async function GET(request) {
         { nume: 'asc' },
         { prenume: 'asc' }
       ]
-    })
-
-    return NextResponse.json({
+    })    
+    return NextResponse.json(serializeBigInt({
       success: true,
       data: utilizatori
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la obținerea utilizatorilor:', error)

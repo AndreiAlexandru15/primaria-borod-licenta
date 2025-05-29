@@ -7,6 +7,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 /**
  * GET /api/departamente/[id]
  * Obține un departament specific
@@ -17,13 +24,14 @@ export async function GET(request, { params }) {
     const userId = headersList.get('x-user-id')
     const primariaId = headersList.get('x-primaria-id')
 
-    if (!userId || !primariaId) {
-      return NextResponse.json(
+    if (!userId || !primariaId) {      return NextResponse.json(
         { error: 'Nu ești autentificat' },
         { status: 401 }
-      )    }
+      )
+    }
 
-    const { id } = await params    
+    const { id } = await params
+
     const departament = await prisma.departament.findFirst({
       where: {
         id: id,
@@ -42,7 +50,7 @@ export async function GET(request, { params }) {
         _count: {
           select: {
             registre: true,
-            documente: true
+            utilizatori: true
           }
         }
       }
@@ -52,13 +60,12 @@ export async function GET(request, { params }) {
       return NextResponse.json(
         { error: 'Departamentul nu a fost găsit' },
         { status: 404 }
-      )
-    }
+      )    }
 
-    return NextResponse.json({
+    return NextResponse.json(serializeBigInt({
       success: true,
       data: departament
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la obținerea departamentului:', error)
@@ -80,12 +87,13 @@ export async function PUT(request, { params }) {
     const primariaId = headersList.get('x-primaria-id')
     const permisiuni = JSON.parse(headersList.get('x-user-permissions') || '[]')
 
-    if (!userId || !primariaId) {
-      return NextResponse.json(
+    if (!userId || !primariaId) {      return NextResponse.json(
         { error: 'Nu ești autentificat' },
         { status: 401 }
       )
-    }    // Verifică permisiunile
+    }
+
+    // Verifică permisiunile
     const hasPermission = permisiuni.includes('utilizatori_editare') || 
                          permisiuni.includes('sistem_configurare')
 
@@ -93,10 +101,13 @@ export async function PUT(request, { params }) {
       return NextResponse.json(
         { error: 'Nu ai permisiunea să editezi departamente' },
         { status: 403 }
-      )    }    const { id } = await params
+      )
+    }
+
+    const { id } = await params
     const { nume, cod, descriere, telefon, email, responsabilId } = await request.json()
 
-    // Verifică dacă departamentul există și include numărul de documente
+    // Verifică dacă departamentul există
     const departamentExistent = await prisma.departament.findFirst({
       where: {
         id: id,
@@ -105,7 +116,7 @@ export async function PUT(request, { params }) {
       include: {
         _count: {
           select: {
-            documente: true
+            registre: true
           }
         }
       }
@@ -162,18 +173,17 @@ export async function PUT(request, { params }) {
         return NextResponse.json(
           { error: 'Responsabilul specificat nu există' },
           { status: 400 }
-        )
-      }
+        )      }
     }
 
-    // Verifică dacă codul se încearcă să fie modificat și departamentul are documente
-    const areDocumente = departamentExistent._count.documente > 0
+    // Verifică dacă codul se încearcă să fie modificat și departamentul are registre
+    const areRegistre = departamentExistent._count.registre > 0
     const codSeModifica = cod.trim() !== departamentExistent.cod
 
-    if (codSeModifica && areDocumente) {
+    if (codSeModifica && areRegistre) {
       return NextResponse.json(
         { 
-          error: `Codul departamentului nu poate fi modificat deoarece există ${departamentExistent._count.documente} documente înregistrate` 
+          error: `Codul departamentului nu poate fi modificat deoarece există ${departamentExistent._count.registre} registre asociate` 
         },
         { status: 400 }
       )
@@ -218,12 +228,11 @@ export async function PUT(request, { params }) {
       nume: nume.trim(),
       descriere: descriere?.trim() || null,
       telefon: telefon?.trim() || null,
-      email: email?.trim() || null,
-      responsabilId: responsabilId === 'none' ? null : responsabilId || null
+      email: email?.trim() || null,      responsabilId: responsabilId === 'none' ? null : responsabilId || null
     }
 
     // Adaugă codul doar dacă se poate modifica
-    if (!areDocumente) {
+    if (!areRegistre) {
       dataUpdate.cod = cod.trim()
     }
 
@@ -244,7 +253,7 @@ export async function PUT(request, { params }) {
         _count: {
           select: {
             registre: true,
-            documente: true
+            utilizatori: true
           }
         }
       }
@@ -260,14 +269,13 @@ export async function PUT(request, { params }) {
           nume: departamentActualizat.nume,
           modificari: { nume, cod: dataUpdate.cod, descriere, telefon, email, responsabilId }
         }
-      }
-    })
+      }    })
 
-    return NextResponse.json({
+    return NextResponse.json(serializeBigInt({
       success: true,
       message: 'Departament actualizat cu succes',
       data: departamentActualizat
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la actualizarea departamentului:', error)
@@ -292,9 +300,10 @@ export async function DELETE(request, { params }) {
     if (!userId || !primariaId) {
       return NextResponse.json(
         { error: 'Nu ești autentificat' },
-        { status: 401 }
-      )
-    }    // Verifică permisiunile
+        { status: 401 }      )
+    }
+
+    // Verifică permisiunile
     const hasPermission = permisiuni.includes('utilizatori_stergere') || 
                          permisiuni.includes('sistem_configurare')
 
@@ -302,9 +311,12 @@ export async function DELETE(request, { params }) {
       return NextResponse.json(
         { error: 'Nu ai permisiunea să ștergi departamente' },
         { status: 403 }
-      )    }
+      )
+    }
 
-    const { id } = await params    // Verifică dacă departamentul există
+    const { id } = await params
+
+    // Verifică dacă departamentul există
     const departament = await prisma.departament.findFirst({
       where: {
         id: id,
@@ -314,7 +326,7 @@ export async function DELETE(request, { params }) {
         _count: {
           select: {
             registre: true,
-            documente: true
+            utilizatori: true
           }
         }
       }
@@ -323,11 +335,10 @@ export async function DELETE(request, { params }) {
     if (!departament) {
       return NextResponse.json(
         { error: 'Departamentul nu a fost găsit' },
-        { status: 404 }
-      )
+        { status: 404 }      )
     }
 
-    // Verifică dacă departamentul are registre sau documente asociate
+    // Verifică dacă departamentul are registre sau utilizatori asociați
     if (departament._count.registre > 0) {
       return NextResponse.json(
         { error: `Nu poți șterge departamentul. Are ${departament._count.registre} registre asociate.` },
@@ -335,9 +346,9 @@ export async function DELETE(request, { params }) {
       )
     }
 
-    if (departament._count.documente > 0) {
+    if (departament._count.utilizatori > 0) {
       return NextResponse.json(
-        { error: `Nu poți șterge departamentul. Are ${departament._count.documente} documente asociate.` },
+        { error: `Nu poți șterge departamentul. Are ${departament._count.utilizatori} utilizatori asociați.` },
         { status: 400 }
       )
     }

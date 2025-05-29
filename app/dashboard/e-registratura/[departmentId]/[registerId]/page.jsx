@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Plus, Download } from "lucide-react"
 import { ListaInregistrari } from "@/components/lista-inregistrari"
+import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
 
 export default async function RegistruInregistrariPage({ params }) {
   const { departmentId, registerId } = await params
@@ -58,16 +59,12 @@ export default async function RegistruInregistrariPage({ params }) {
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
-            </div>
-            <div className="flex gap-2">
+            </div>            <div className="flex gap-2">
               <Button variant="outline">
                 <Download className="h-4 w-4 mr-2" />
                 Export
               </Button>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nouă înregistrare
-              </Button>
+              <AdaugaInregistrareModal departamentId={departmentId} registruId={registerId} />
             </div>
           </div>
         </header>

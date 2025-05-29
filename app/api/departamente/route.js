@@ -7,6 +7,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 /**
  * GET /api/departamente
  * Obține toate departamentele pentru primăria curentă
@@ -52,28 +59,25 @@ export async function GET(request) {
               }
             }
           }
-        },
-        _count: {
+        },        _count: {
           select: {
             registre: true,
-            documente: true,
             utilizatori: {
               where: {
                 activ: true
               }
             }
           }
-        }
-      },
+        }      },
       orderBy: {
         nume: 'asc'
       }
     })
 
-    return NextResponse.json({
+    return NextResponse.json(serializeBigInt({
       success: true,
       data: departamente
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la obținerea departamentelor:', error)
@@ -208,14 +212,11 @@ export async function POST(request) {
             prenume: true,
             email: true,
             functie: true
+          }        },          _count: {
+            select: {
+              registre: true
+            }
           }
-        },
-        _count: {
-          select: {
-            registre: true,
-            documente: true
-          }
-        }
       }
     })
 
@@ -227,15 +228,14 @@ export async function POST(request) {
         detalii: {
           departamentId: departamentNou.id,
           nume: departamentNou.nume
-        }
-      }
+        }      }
     })
 
-    return NextResponse.json({
+    return NextResponse.json(serializeBigInt({
       success: true,
       message: 'Departament creat cu succes',
       data: departamentNou
-    }, { status: 201 })
+    }), { status: 201 })
 
   } catch (error) {
     console.error('Eroare la crearea departamentului:', error)

@@ -8,6 +8,13 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 // GET - Listează înregistrările cu filtrare
 export async function GET(request) {
   try {
@@ -47,19 +54,15 @@ export async function GET(request) {
     // Execută query-ul cu include pentru relații
     const [inregistrari, total] = await Promise.all([
       prisma.inregistrare.findMany({
-        where,
-        include: {
+        where,        include: {
           registru: {
             include: {
               departament: true
             }
           },
-          documente: {
-            include: {
-              document: true
-            },
+          fisiere: {
             orderBy: {
-              ordinea: 'asc'
+              createdAt: 'asc'
             }
           }
         },
@@ -71,26 +74,27 @@ export async function GET(request) {
         take: limit
       }),
       prisma.inregistrare.count({ where })
-    ])
-
-    // Calculează metadatele pentru paginare
+    ])    // Calculează metadatele pentru paginare
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPreviousPage = page > 1
 
+    // Serialize data to handle BigInt values
+    const serializedData = serializeBigInt({
+      inregistrari,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: total,
+        itemsPerPage: limit,
+        hasNextPage,
+        hasPreviousPage
+      }
+    })
+
     return NextResponse.json({
       success: true,
-      data: {
-        inregistrari,
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalItems: total,
-          itemsPerPage: limit,
-          hasNextPage,
-          hasPreviousPage
-        }
-      }
+      data: serializedData
     })
 
   } catch (error) {
@@ -108,8 +112,7 @@ export async function GET(request) {
 
 // POST - Creează o înregistrare nouă cu documente
 export async function POST(request) {
-  try {
-    const body = await request.json()
+  try {    const body = await request.json()
     const { 
       registruId, 
       expeditor, 
@@ -118,7 +121,7 @@ export async function POST(request) {
       observatii,
       urgent = false, 
       confidential = false,
-      documenteIds = [] // Array de ID-uri de documente existente
+      fisiereIds = [] // Array de ID-uri de fișiere existente
     } = body
 
     // Validare
@@ -189,22 +192,17 @@ export async function POST(request) {
           urgent,
           confidential
         }
-      })
-
-      // Atașează documentele dacă există
-      if (documenteIds.length > 0) {
-        const inregistrareDocumente = documenteIds.map((documentId, index) => ({
-          inregistrareId: inregistrare.id,
-          documentId,
-          ordinea: index + 1
-        }))
-
-        await tx.inregistrareDocument.createMany({
-          data: inregistrareDocumente
+      })      // Atașează fișierele dacă există
+      if (fisiereIds.length > 0) {
+        await tx.fisier.updateMany({
+          where: {
+            id: { in: fisiereIds }
+          },
+          data: {
+            inregistrareId: inregistrare.id
+          }
         })
-      }
-
-      // Returnează înregistrarea cu relațiile
+      }      // Returnează înregistrarea cu relațiile
       return await tx.inregistrare.findUnique({
         where: { id: inregistrare.id },
         include: {
@@ -213,21 +211,20 @@ export async function POST(request) {
               departament: true
             }
           },
-          documente: {
-            include: {
-              document: true
-            },
+          fisiere: {
             orderBy: {
-              ordinea: 'asc'
+              createdAt: 'asc'
             }
           }
         }
-      })
-    })
+      })    })
+
+    // Serialize the result to handle BigInt values
+    const serializedResult = serializeBigInt(result)
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: serializedResult,
       message: `Înregistrarea ${numarInregistrare} a fost creată cu succes`
     }, { status: 201 })
 

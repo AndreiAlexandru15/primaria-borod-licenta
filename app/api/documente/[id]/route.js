@@ -1,6 +1,6 @@
 /**
- * API Route pentru operațiuni individuale pe document
- * @fileoverview GET, PUT, DELETE pentru document specific
+ * API Route pentru operațiuni individuale pe înregistrare
+ * @fileoverview GET, PUT, DELETE pentru înregistrare specifică
  */
 
 import { NextResponse } from 'next/server'
@@ -9,7 +9,7 @@ import { headers } from 'next/headers'
 
 /**
  * GET /api/documente/[id]
- * Obține un document specific
+ * Obține o înregistrare specifică
  */
 export async function GET(request, { params }) {
   try {
@@ -26,30 +26,28 @@ export async function GET(request, { params }) {
 
     const { id } = await params
     
-    const document = await prisma.document.findFirst({
+    const inregistrare = await prisma.inregistrare.findFirst({
       where: {
         id: id,
-        primariaId: primariaId
+        registru: {
+          departament: {
+            primariaId: primariaId
+          }
+        }
       },
       include: {
-        departament: {
-          select: {
-            id: true,
-            nume: true,
-            cod: true
-          }
-        },
         registru: {
           select: {
             id: true,
             nume: true,
-            cod: true
-          }
-        },
-        categorie: {
-          select: {
-            id: true,
-            nume: true
+            cod: true,
+            departament: {
+              select: {
+                id: true,
+                nume: true,
+                cod: true
+              }
+            }
           }
         },
         fisiere: {
@@ -65,16 +63,16 @@ export async function GET(request, { params }) {
       }
     })
 
-    if (!document) {
+    if (!inregistrare) {
       return NextResponse.json(
-        { error: 'Documentul nu a fost găsit' },
+        { error: 'Înregistrarea nu a fost găsită' },
         { status: 404 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: document
+      data: inregistrare
     })
 
   } catch (error) {
@@ -88,7 +86,7 @@ export async function GET(request, { params }) {
 
 /**
  * PUT /api/documente/[id]
- * Actualizează un document
+ * Actualizează o înregistrare
  */
 export async function PUT(request, { params }) {
   try {
@@ -106,17 +104,21 @@ export async function PUT(request, { params }) {
     const { id } = await params
     const data = await request.json()
 
-    // Verifică dacă documentul există
-    const documentExistent = await prisma.document.findFirst({
+    // Verifică dacă înregistrarea există
+    const inregistrareExistenta = await prisma.inregistrare.findFirst({
       where: {
         id: id,
-        primariaId: primariaId
+        registru: {
+          departament: {
+            primariaId: primariaId
+          }
+        }
       }
     })
 
-    if (!documentExistent) {
+    if (!inregistrareExistenta) {
       return NextResponse.json(
-        { error: 'Documentul nu a fost găsit' },
+        { error: 'Înregistrarea nu a fost găsită' },
         { status: 404 }
       )
     }
@@ -126,8 +128,8 @@ export async function PUT(request, { params }) {
     
     // Câmpuri care pot fi actualizate
     const updatableFields = [
-      'expeditor', 'destinatar', 'subiect', 'tipDocument',
-      'confidentialitate', 'prioritate', 'status', 'observatii'
+      'expeditor', 'destinatar', 'obiect', 'observatii', 
+      'urgent', 'confidential', 'status'
     ]
 
     updatableFields.forEach(field => {
@@ -136,29 +138,23 @@ export async function PUT(request, { params }) {
       }
     })
 
-    // Actualizează documentul
-    const documentActualizat = await prisma.document.update({
+    // Actualizează înregistrarea
+    const inregistrareActualizata = await prisma.inregistrare.update({
       where: { id },
       data: updateData,
       include: {
-        departament: {
-          select: {
-            id: true,
-            nume: true,
-            cod: true
-          }
-        },
         registru: {
           select: {
             id: true,
             nume: true,
-            cod: true
-          }
-        },
-        categorie: {
-          select: {
-            id: true,
-            nume: true
+            cod: true,
+            departament: {
+              select: {
+                id: true,
+                nume: true,
+                cod: true
+              }
+            }
           }
         }
       }
@@ -166,8 +162,8 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      data: documentActualizat,
-      message: 'Document actualizat cu succes'
+      data: inregistrareActualizata,
+      message: 'Înregistrare actualizată cu succes'
     })
 
   } catch (error) {
@@ -181,7 +177,7 @@ export async function PUT(request, { params }) {
 
 /**
  * DELETE /api/documente/[id]
- * Șterge un document
+ * Șterge o înregistrare
  */
 export async function DELETE(request, { params }) {
   try {
@@ -198,11 +194,15 @@ export async function DELETE(request, { params }) {
 
     const { id } = await params
 
-    // Verifică dacă documentul există
-    const document = await prisma.document.findFirst({
+    // Verifică dacă înregistrarea există
+    const inregistrare = await prisma.inregistrare.findFirst({
       where: {
         id: id,
-        primariaId: primariaId
+        registru: {
+          departament: {
+            primariaId: primariaId
+          }
+        }
       },
       include: {
         _count: {
@@ -213,31 +213,31 @@ export async function DELETE(request, { params }) {
       }
     })
 
-    if (!document) {
+    if (!inregistrare) {
       return NextResponse.json(
-        { error: 'Documentul nu a fost găsit' },
+        { error: 'Înregistrarea nu a fost găsită' },
         { status: 404 }
       )
     }
 
-    // Verifică dacă documentul are fișiere asociate
-    if (document._count.fisiere > 0) {
+    // Verifică dacă înregistrarea are fișiere asociate
+    if (inregistrare._count.fisiere > 0) {
       return NextResponse.json(
         { 
-          error: 'Nu se poate șterge documentul deoarece are fișiere asociate. Ștergeți mai întâi fișierele.' 
+          error: 'Nu se poate șterge înregistrarea deoarece are fișiere asociate. Ștergeți mai întâi fișierele.' 
         },
         { status: 400 }
       )
     }
 
-    // Șterge documentul
-    await prisma.document.delete({
+    // Șterge înregistrarea
+    await prisma.inregistrare.delete({
       where: { id }
     })
 
     return NextResponse.json({
       success: true,
-      message: 'Document șters cu succes'
+      message: 'Înregistrare ștersă cu succes'
     })
 
   } catch (error) {

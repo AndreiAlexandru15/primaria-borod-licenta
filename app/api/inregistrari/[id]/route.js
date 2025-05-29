@@ -6,6 +6,13 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 const prisma = new PrismaClient()
 
 // GET - Obține o înregistrare specifică
@@ -40,12 +47,10 @@ export async function GET(request, { params }) {
         },
         { status: 404 }
       )
-    }
-
-    return NextResponse.json({
+    }    return NextResponse.json(serializeBigInt({
       success: true,
       data: inregistrare
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la încărcarea înregistrării:', error)
@@ -148,13 +153,12 @@ export async function PUT(request, { params }) {
           }
         }
       })
-    })
-
-    return NextResponse.json({
+    })    
+    return NextResponse.json(serializeBigInt({
       success: true,
       data: result,
       message: 'Înregistrarea a fost actualizată cu succes'
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la actualizarea înregistrării:', error)

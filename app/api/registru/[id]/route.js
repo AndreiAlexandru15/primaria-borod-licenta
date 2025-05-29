@@ -7,6 +7,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
 
+// Helper function to convert BigInt to String for JSON serialization
+function serializeBigInt(obj) {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ))
+}
+
 /**
  * GET /api/registru/[id]
  * Obține un registru specific
@@ -40,9 +47,10 @@ export async function GET(request, { params }) {
             nume: true,
             cod: true
           }
-        },        _count: {
+        },
+        _count: {
           select: {
-            documente: true
+            inregistrari: true
           }
         }
       }
@@ -53,12 +61,10 @@ export async function GET(request, { params }) {
         { error: 'Registrul nu a fost găsit' },
         { status: 404 }
       )
-    }
-
-    return NextResponse.json({
+    }    return NextResponse.json(serializeBigInt({
       success: true,
       data: registru
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la obținerea registrului:', error)
@@ -108,12 +114,11 @@ export async function PUT(request, { params }) {
         departament: {
           primariaId: primariaId
         }
-      },
-      include: {
+      },      include: {
         departament: true,
         _count: {
           select: {
-            documente: true
+            inregistrari: true
           }
         }
       }
@@ -144,18 +149,17 @@ export async function PUT(request, { params }) {
     if (!tipRegistru || !['intrare', 'iesire', 'intern', 'intrare_iesire'].includes(tipRegistru)) {
       return NextResponse.json(
         { error: 'Tipul registrului nu este valid' },
-        { status: 400 }
-      )
+        { status: 400 }      )
     }
 
-    // Verifică dacă codul se încearcă să fie modificat și registrul are documente
-    const areDocumente = registruExistent._count.documente > 0
+    // Verifică dacă codul se încearcă să fie modificat și registrul are înregistrări
+    const areInregistrari = registruExistent._count.inregistrari > 0
     const codSeModifica = cod.trim() !== registruExistent.cod
 
-    if (codSeModifica && areDocumente) {
+    if (codSeModifica && areInregistrari) {
       return NextResponse.json(
         { 
-          error: `Codul registrului nu poate fi modificat deoarece există ${registruExistent._count.documente} documente înregistrate` 
+          error: `Codul registrului nu poate fi modificat deoarece există ${registruExistent._count.inregistrari} înregistrări` 
         },
         { status: 400 }
       )
@@ -201,12 +205,11 @@ export async function PUT(request, { params }) {
     const dataUpdate = {
       nume: nume.trim(),
       descriere: descriere?.trim() || null,
-      tipRegistru: tipRegistru,
-      activ: activ !== false
+      tipRegistru: tipRegistru,      activ: activ !== false
     }
 
     // Adaugă codul doar dacă se poate modifica
-    if (!areDocumente) {
+    if (!areInregistrari) {
       dataUpdate.cod = cod.trim()
     }
 
@@ -223,7 +226,7 @@ export async function PUT(request, { params }) {
         },
         _count: {
           select: {
-            documente: true
+            inregistrari: true
           }
         }
       }
@@ -241,13 +244,12 @@ export async function PUT(request, { params }) {
           modificari: { nume, cod: dataUpdate.cod, descriere, tipRegistru, activ }
         }
       }
-    })
-
-    return NextResponse.json({
+    })    
+    return NextResponse.json(serializeBigInt({
       success: true,
       message: 'Registru actualizat cu succes',
       data: registruActualizat
-    })
+    }))
 
   } catch (error) {
     console.error('Eroare la actualizarea registrului:', error)
@@ -294,11 +296,10 @@ export async function DELETE(request, { params }) {
         departament: {
           primariaId: primariaId
         }
-      },
-      include: {
+      },      include: {
         _count: {
           select: {
-            documente: true
+            inregistrari: true
           }
         }
       }
@@ -309,12 +310,12 @@ export async function DELETE(request, { params }) {
         { error: 'Registrul nu a fost găsit' },
         { status: 404 }
       )
-    }    // Verifică dacă registrul are documente asociate
-    if (registru._count.documente > 0) {
+    }    // Verifică dacă registrul are înregistrări asociate
+    if (registru._count.inregistrari > 0) {
       return NextResponse.json(
         { 
-          error: `Nu se poate șterge registrul deoarece conține ${registru._count.documente} document${registru._count.documente > 1 ? 'e' : ''}. Ștergeți mai întâi toate documentele din registru.`,
-          code: 'HAS_DOCUMENTS'
+          error: `Nu se poate șterge registrul deoarece conține ${registru._count.inregistrari} înregistrar${registru._count.inregistrari > 1 ? 'i' : 'e'}. Ștergeți mai întâi toate înregistrările din registru.`,
+          code: 'HAS_REGISTRATIONS'
         },
         { status: 400 }
       )
