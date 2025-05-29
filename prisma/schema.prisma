@@ -109,6 +109,7 @@ model Utilizator {
 
   // Relații
   primaria             Primaria @relation(fields: [primariaId], references: [id])
+  departamente         UtilizatorDepartament[]
   responsabilDepartamente Departament[] @relation("ResponsabilDepartament")
   roluri               UtilizatorRol[]
   rolAcordat           UtilizatorRol[] @relation("AcordatDe")
@@ -116,6 +117,25 @@ model Utilizator {
   istoricDocumente     IstoricDocument[] @relation("ModificatDe")
 
   @@map("utilizatori")
+}
+
+// Tabelă de joncțiune pentru relația many-to-many între Utilizatori și Departamente
+model UtilizatorDepartament {
+  id            String @id @default(uuid())
+  utilizatorId  String @map("utilizator_id")
+  departamentId String @map("departament_id")
+  rolDepartament String? @map("rol_departament") // Ex: "administrator", "membru", "secretar"
+  dataAtribuire DateTime @default(now()) @map("data_atribuire")
+  activ         Boolean @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relații
+  utilizator    Utilizator @relation(fields: [utilizatorId], references: [id], onDelete: Cascade)
+  departament   Departament @relation(fields: [departamentId], references: [id], onDelete: Cascade)
+
+  @@unique([utilizatorId, departamentId])
+  @@map("utilizator_departamente")
 }
 
 // Fonduri și Organizare Arhivistică
@@ -163,6 +183,8 @@ model Departament {
   cod          String
   descriere    String?
   responsabilId String? @map("responsabil_id")
+  telefon      String?
+  email        String?
   activ        Boolean @default(true)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
@@ -170,6 +192,7 @@ model Departament {
   // Relații
   primaria     Primaria @relation(fields: [primariaId], references: [id])
   responsabil  Utilizator? @relation("ResponsabilDepartament", fields: [responsabilId], references: [id])
+  utilizatori  UtilizatorDepartament[]
   registre     Registru[]
   documente    Document[]
 

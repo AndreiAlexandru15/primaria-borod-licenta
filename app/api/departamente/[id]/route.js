@@ -96,13 +96,20 @@ export async function PUT(request, { params }) {
         { status: 403 }
       )
     }    const { id } = params
-    const { nume, descriere } = await request.json()
+    const { nume, cod, descriere, telefon, email, responsabilId } = await request.json()
 
-    // Verifică dacă departamentul există
+    // Verifică dacă departamentul există și include numărul de documente
     const departamentExistent = await prisma.departament.findFirst({
       where: {
         id: id,
         primariaId: primariaId
+      },
+      include: {
+        _count: {
+          select: {
+            documente: true
+          }
+        }
       }
     })
 
@@ -121,8 +128,61 @@ export async function PUT(request, { params }) {
       )
     }
 
+    if (!cod || cod.trim().length < 2) {
+      return NextResponse.json(
+        { error: 'Codul departamentului este obligatoriu (min. 2 caractere)' },
+        { status: 400 }
+      )
+    }
+
+    // Validare email
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { error: 'Adresa de email nu este validă' },
+        { status: 400 }
+      )
+    }
+
+    // Validare telefon
+    if (telefon && !/^[\d\s\-\+\(\)\.]+$/.test(telefon)) {
+      return NextResponse.json(
+        { error: 'Numărul de telefon nu este valid' },
+        { status: 400 }
+      )
+    }
+
+    // Verifică dacă responsabilul există (dacă este specificat)
+    if (responsabilId && responsabilId !== 'none') {
+      const responsabilExista = await prisma.utilizator.findFirst({
+        where: {
+          id: responsabilId,
+          primariaId: primariaId
+        }
+      })
+
+      if (!responsabilExista) {
+        return NextResponse.json(
+          { error: 'Responsabilul specificat nu există' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Verifică dacă codul se încearcă să fie modificat și departamentul are documente
+    const areDocumente = departamentExistent._count.documente > 0
+    const codSeModifica = cod.trim() !== departamentExistent.cod
+
+    if (codSeModifica && areDocumente) {
+      return NextResponse.json(
+        { 
+          error: `Codul departamentului nu poate fi modificat deoarece există ${departamentExistent._count.documente} documente înregistrate` 
+        },
+        { status: 400 }
+      )
+    }
+
     // Verifică dacă alt departament cu același nume există
-    const duplicat = await prisma.departament.findFirst({
+    const duplicatNume = await prisma.departament.findFirst({
       where: {
         nume: nume.trim(),
         primariaId: primariaId,
@@ -130,19 +190,49 @@ export async function PUT(request, { params }) {
       }
     })
 
-    if (duplicat) {
+    if (duplicatNume) {
       return NextResponse.json(
         { error: 'Un alt departament cu acest nume există deja' },
         { status: 400 }
       )
-    }    // Actualizează departamentul
+    }
+
+    // Verifică dacă alt departament cu același cod există (doar dacă codul se modifică)
+    if (codSeModifica) {
+      const duplicatCod = await prisma.departament.findFirst({
+        where: {
+          cod: cod.trim(),
+          primariaId: primariaId,
+          id: { not: id }
+        }
+      })
+
+      if (duplicatCod) {
+        return NextResponse.json(
+          { error: 'Un alt departament cu acest cod există deja' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Pregătește datele pentru actualizare
+    const dataUpdate = {
+      nume: nume.trim(),
+      descriere: descriere?.trim() || null,
+      telefon: telefon?.trim() || null,
+      email: email?.trim() || null,
+      responsabilId: responsabilId === 'none' ? null : responsabilId || null
+    }
+
+    // Adaugă codul doar dacă se poate modifica
+    if (!areDocumente) {
+      dataUpdate.cod = cod.trim()
+    }
+
+    // Actualizează departamentul
     const departamentActualizat = await prisma.departament.update({
       where: { id: id },
-      data: {
-        nume: nume.trim(),
-        cod: nume.trim().toUpperCase().replace(/\s+/g, '_'), // Actualizează și codul
-        descriere: descriere?.trim() || null
-      },
+      data: dataUpdate,
       include: {
         responsabil: {
           select: {
@@ -166,10 +256,11 @@ export async function PUT(request, { params }) {
     await prisma.auditLog.create({
       data: {
         utilizatorId: userId,
-        actiune: 'DEPARTAMENT_ACTUALIZAT',        detalii: {
+        actiune: 'DEPARTAMENT_ACTUALIZAT',
+        detalii: {
           departamentId: id,
           nume: departamentActualizat.nume,
-          modificari: { nume, descriere }
+          modificari: { nume, cod: dataUpdate.cod, descriere, telefon, email, responsabilId }
         }
       }
     })

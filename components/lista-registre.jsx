@@ -119,21 +119,14 @@ export function ListaRegistre({ departmentId }) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header cu informații departament */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            Registre - {departament?.nume || 'Departament'}
-          </h2>
-          <p className="text-muted-foreground">
-            Gestionează registrele departamentului
-          </p>
-        </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Adaugă Registru
-        </Button>
+    <div className="space-y-6">      {/* Header cu informații departament (fără buton adaugă) */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">
+          Registre - {departament?.nume || 'Departament'}
+        </h2>
+        <p className="text-muted-foreground">
+          Gestionează registrele departamentului
+        </p>
       </div>
 
       {/* Lista registrelor */}

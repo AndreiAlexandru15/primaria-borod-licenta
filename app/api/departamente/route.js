@@ -37,10 +37,31 @@ export async function GET(request) {
             functie: true
           }
         },
+        utilizatori: {
+          where: {
+            activ: true
+          },
+          include: {
+            utilizator: {
+              select: {
+                id: true,
+                nume: true,
+                prenume: true,
+                email: true,
+                functie: true
+              }
+            }
+          }
+        },
         _count: {
           select: {
             registre: true,
-            documente: true
+            documente: true,
+            utilizatori: {
+              where: {
+                activ: true
+              }
+            }
           }
         }
       },
@@ -97,9 +118,7 @@ export async function POST(request) {
         { error: 'Nu ai permisiunea să creezi departamente' },
         { status: 403 }
       )
-    }
-
-    const { nume, descriere } = await request.json()
+    }    const { nume, cod, descriere, responsabilId, telefon, email } = await request.json()
 
     // Validare input
     if (!nume || nume.trim().length < 2) {
@@ -109,25 +128,76 @@ export async function POST(request) {
       )
     }
 
+    if (!cod || cod.trim().length < 1) {
+      return NextResponse.json(
+        { error: 'Codul departamentului este obligatoriu' },
+        { status: 400 }
+      )
+    }
+
+    // Validare email dacă este furnizat
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return NextResponse.json(
+        { error: 'Adresa de email nu este validă' },
+        { status: 400 }
+      )
+    }
+
     // Verifică dacă departamentul cu același nume există deja
-    const departamentExistent = await prisma.departament.findFirst({
+    const departamentExistentNume = await prisma.departament.findFirst({
       where: {
         nume: nume.trim(),
         primariaId: primariaId
       }
     })
 
-    if (departamentExistent) {
+    if (departamentExistentNume) {
       return NextResponse.json(
         { error: 'Un departament cu acest nume există deja' },
         { status: 400 }
       )
+    }
+
+    // Verifică dacă departamentul cu același cod există deja
+    const departamentExistentCod = await prisma.departament.findFirst({
+      where: {
+        cod: cod.trim(),
+        primariaId: primariaId
+      }
+    })
+
+    if (departamentExistentCod) {
+      return NextResponse.json(
+        { error: 'Un departament cu acest cod există deja' },
+        { status: 400 }
+      )
+    }
+
+    // Verifică dacă responsabilul există (dacă este furnizat)
+    if (responsabilId) {
+      const responsabil = await prisma.utilizator.findFirst({
+        where: {
+          id: responsabilId,
+          primariaId: primariaId,
+          activ: true
+        }
+      })
+
+      if (!responsabil) {
+        return NextResponse.json(
+          { error: 'Responsabilul selectat nu a fost găsit' },
+          { status: 400 }
+        )
+      }
     }    // Creează departamentul
     const departamentNou = await prisma.departament.create({
       data: {
         nume: nume.trim(),
-        cod: nume.trim().toUpperCase().replace(/\s+/g, '_'), // Generează cod automat
+        cod: cod.trim(),
         descriere: descriere?.trim() || null,
+        responsabilId: responsabilId || null,
+        telefon: telefon?.trim() || null,
+        email: email?.trim() || null,
         primariaId: primariaId
       },
       include: {

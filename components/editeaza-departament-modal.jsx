@@ -1,6 +1,6 @@
 /**
- * Modal pentru adăugarea unui departament nou
- * @fileoverview Componentă modal pentru crearea departamentelor cu toate câmpurile necesare
+ * Modal pentru editarea unui departament existent
+ * @fileoverview Componentă modal pentru editarea departamentelor cu restricții pe cod
  */
 
 "use client"
@@ -27,7 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, Building2, User, Phone, Mail, Hash } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Edit, Building2, User, Phone, Mail, Hash, AlertTriangle } from "lucide-react"
 import { 
   notifySuccess, 
   notifyError, 
@@ -39,7 +40,7 @@ import {
 } from "@/lib/notifications"
 import axios from "axios"
 
-export function AdaugaDepartamentModal() {
+export function EditeazaDepartamentModal({ departament, trigger }) {
   const [isOpen, setIsOpen] = useState(false)
   const [formData, setFormData] = useState({
     nume: '',
@@ -66,32 +67,61 @@ export function AdaugaDepartamentModal() {
       }
       return response.data.data
     },
-    enabled: isOpen // Încarcă doar când modalul este deschis
+    enabled: isOpen
   })
 
-  // Mutation pentru crearea departamentului
-  const createDepartamentMutation = useMutation({
-    mutationFn: async (departamentData) => {
-      const response = await axios.post('/api/departamente', departamentData)
+  // Query pentru detaliile departamentului (pentru a verifica dacă are documente)
+  const {
+    data: departamentDetalii,
+    isLoading: departamentLoading
+  } = useQuery({
+    queryKey: ['departament', departament?.id],
+    queryFn: async () => {
+      const response = await axios.get(`/api/departamente/${departament.id}`)
       if (!response.data.success) {
-        throw new Error(response.data.error || 'Eroare la crearea departamentului')
+        throw new Error('Nu s-au putut încărca detaliile departamentului')
+      }
+      return response.data.data
+    },
+    enabled: isOpen && !!departament?.id
+  })
+
+  // Populează formularul când se deschide modalul
+  useEffect(() => {
+    if (isOpen && departament) {
+      setFormData({
+        nume: departament.nume || '',
+        cod: departament.cod || '',
+        descriere: departament.descriere || '',
+        telefon: departament.telefon || '',
+        email: departament.email || '',
+        responsabilId: departament.responsabilId || ''
+      })
+    }
+  }, [isOpen, departament])
+
+  // Mutation pentru actualizarea departamentului
+  const updateDepartamentMutation = useMutation({
+    mutationFn: async (departamentData) => {
+      const response = await axios.put(`/api/departamente/${departament.id}`, departamentData)
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la actualizarea departamentului')
       }
       return response.data.data
     },    onSuccess: (data) => {
-      // Invalidează cache-ul pentru departamente
       queryClient.invalidateQueries({ queryKey: ['departamente'] })
+      queryClient.invalidateQueries({ queryKey: ['departament', departament.id] })
       
-      crudNotifications.created("Departamentul", data.nume)
+      crudNotifications.updated("Departamentul", data.nume)
       
-      // Resetează formularul și închide modalul
-      resetForm()
       setIsOpen(false)
     },
     onError: (error) => {
-      console.error('Eroare la crearea departamentului:', error)
-      notifyError(error.message || 'A apărut o eroare la crearea departamentului')
+      console.error('Eroare la actualizarea departamentului:', error)
+      notifyError(error.message || 'A apărut o eroare la actualizarea departamentului')
     }
   })
+
   const handleInputChange = (e) => {
     const { id, value } = e.target
     setFormData(prev => ({
@@ -99,36 +129,6 @@ export function AdaugaDepartamentModal() {
       [id]: value
     }))
   }
-    const resetForm = () => {    setFormData({
-      nume: '',
-      cod: '',
-      descriere: '',
-      telefon: '',
-      email: '',
-      responsabilId: ''
-    })
-  }
-
-  // Generează cod automat pe baza numelui
-  const generateCod = (nume) => {
-    if (!nume) return ''
-    return nume
-      .trim()
-      .toUpperCase()
-      .replace(/[^A-Z0-9\s]/g, '') // Elimină caractere speciale
-      .replace(/\s+/g, '_') // Înlocuiește spațiile cu underscore
-      .substring(0, 20) // Limitează la 20 caractere
-  }
-
-  // Auto-generează codul când se schimbă numele
-  useEffect(() => {
-    if (formData.nume && !formData.cod) {
-      setFormData(prev => ({
-        ...prev,
-        cod: generateCod(prev.nume)
-      }))
-    }
-  }, [formData.nume])
   const validateForm = () => {
     if (!formData.nume.trim()) {
       validationNotifications.required('Numele departamentului')
@@ -152,6 +152,7 @@ export function AdaugaDepartamentModal() {
     }
     return true
   }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
@@ -168,44 +169,57 @@ export function AdaugaDepartamentModal() {
       responsabilId: formData.responsabilId === 'none' ? null : formData.responsabilId || null,
       telefon: formData.telefon.trim() || null,
       email: formData.email.trim() || null
-    }    // Executează mutation-ul cu loading toast automat
-    const loadingToast = crudNotifications.loading('creează', 'departamentul')
+    }    // Executează mutation-ul
+    const loadingToast = crudNotifications.loading('actualizează', 'departamentul')
     
     try {
-      await createDepartamentMutation.mutateAsync(submitData)
+      await updateDepartamentMutation.mutateAsync(submitData)
       dismissNotification(loadingToast)
     } catch (error) {
       dismissNotification(loadingToast)
-      // Eroarea este deja gestionată în onError din mutation
     }
   }
 
   const handleOpenChange = (open) => {
-    if (!open) {
-      resetForm()
-    }
     setIsOpen(open)
   }
+
+  // Verifică dacă departamentul are documente înregistrate
+  const areDocumente = departamentDetalii?._count?.documente > 0
+  const codNuSePotModifica = areDocumente
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Adaugă Departament
-        </Button>
+        {trigger || (
+          <Button variant="ghost" size="sm">
+            <Edit className="h-4 w-4 mr-2" />
+            Editează
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              Adaugă Departament Nou
-            </DialogTitle>            <DialogDescription>
-              Completează informațiile pentru noul departament. Câmpurile marcate cu * sunt obligatorii.
-              Responsabilul departamentului poate fi adăugat ulterior prin funcția de editare.
+              Editează Departament
+            </DialogTitle>
+            <DialogDescription>
+              Modifică informațiile departamentului. Câmpurile marcate cu * sunt obligatorii.
             </DialogDescription>
           </DialogHeader>
+          
+          {codNuSePotModifica && (
+            <Alert className="mt-4">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Codul departamentului nu poate fi modificat deoarece există {departamentDetalii?._count?.documente} 
+                {departamentDetalii?._count?.documente === 1 ? ' document înregistrat' : ' documente înregistrate'} 
+                în acest departament.
+              </AlertDescription>
+            </Alert>
+          )}
           
           <div className="grid gap-6 py-4">
             {/* Nume Departament */}
@@ -218,8 +232,9 @@ export function AdaugaDepartamentModal() {
                 id="nume"
                 placeholder="ex. Resurse Umane"
                 value={formData.nume}
-                onChange={handleInputChange}                required
-                disabled={createDepartamentMutation.isPending}
+                onChange={handleInputChange}
+                required
+                disabled={updateDepartamentMutation.isPending}
                 maxLength={100}
               />
             </div>
@@ -234,22 +249,28 @@ export function AdaugaDepartamentModal() {
                 id="cod"
                 placeholder="ex. RESURSE_UMANE"
                 value={formData.cod}
-                onChange={handleInputChange}                required
-                disabled={createDepartamentMutation.isPending}
+                onChange={handleInputChange}
+                required
+                disabled={updateDepartamentMutation.isPending || codNuSePotModifica}
                 maxLength={20}
               />
-              <p className="text-xs text-muted-foreground">
-                Codul se generează automat pe baza numelui, dar poate fi modificat
-              </p>
-            </div>            {/* Responsabil */}
+              {codNuSePotModifica && (
+                <p className="text-xs text-muted-foreground">
+                  Codul nu poate fi modificat deoarece departamentul are documente înregistrate
+                </p>
+              )}
+            </div>
+
+            {/* Responsabil */}
             <div className="grid gap-2">
               <Label className="flex items-center gap-2">
                 <User className="h-4 w-4" />
                 Responsabil Departament
-              </Label>              <Select 
+              </Label>
+              <Select 
                 value={formData.responsabilId} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, responsabilId: value }))}
-                disabled={createDepartamentMutation.isPending || utilizatoriLoading}
+                disabled={updateDepartamentMutation.isPending || utilizatoriLoading}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={
@@ -257,7 +278,8 @@ export function AdaugaDepartamentModal() {
                       ? "Se încarcă utilizatorii..." 
                       : "Selectează responsabilul departamentului"
                   } />
-                </SelectTrigger>                <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                   <SelectItem value="none">Fără responsabil</SelectItem>
                   {utilizatori.map((utilizator) => (
                     <SelectItem key={utilizator.id} value={utilizator.id}>
@@ -282,9 +304,10 @@ export function AdaugaDepartamentModal() {
               <Input
                 id="telefon"
                 type="tel"
-                placeholder="ex. 0721.555.123"                value={formData.telefon}
+                placeholder="ex. 0721.555.123"
+                value={formData.telefon}
                 onChange={handleInputChange}
-                disabled={createDepartamentMutation.isPending}
+                disabled={updateDepartamentMutation.isPending}
                 maxLength={20}
               />
             </div>
@@ -298,9 +321,10 @@ export function AdaugaDepartamentModal() {
               <Input
                 id="email"
                 type="email"
-                placeholder="ex. resurse.umane@primaria.ro"                value={formData.email}
+                placeholder="ex. resurse.umane@primaria.ro"
+                value={formData.email}
                 onChange={handleInputChange}
-                disabled={createDepartamentMutation.isPending}
+                disabled={updateDepartamentMutation.isPending}
                 maxLength={100}
               />
             </div>
@@ -310,28 +334,31 @@ export function AdaugaDepartamentModal() {
               <Label htmlFor="descriere">Descriere</Label>
               <Textarea
                 id="descriere"
-                placeholder="Descrierea activităților departamentului..."                value={formData.descriere}
+                placeholder="Descrierea activităților departamentului..."
+                value={formData.descriere}
                 onChange={handleInputChange}
-                disabled={createDepartamentMutation.isPending}
+                disabled={updateDepartamentMutation.isPending}
                 rows={3}
                 maxLength={500}
               />
             </div>
-          </div>          <DialogFooter>
+          </div>
+
+          <DialogFooter>
             <Button 
               type="button" 
               variant="outline" 
               onClick={() => setIsOpen(false)}
-              disabled={createDepartamentMutation.isPending}
+              disabled={updateDepartamentMutation.isPending}
             >
               Anulează
             </Button>
-            <Button type="submit" disabled={createDepartamentMutation.isPending}>
-              {createDepartamentMutation.isPending ? 'Se creează...' : 'Creează Departament'}
+            <Button type="submit" disabled={updateDepartamentMutation.isPending}>
+              {updateDepartamentMutation.isPending ? 'Se actualizează...' : 'Actualizează Departament'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   )
-}          
+}
