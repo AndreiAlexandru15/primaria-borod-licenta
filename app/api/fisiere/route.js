@@ -25,6 +25,8 @@ export async function POST(request) {
     const formData = await request.formData()
     const file = formData.get('file')
     const categorieId = formData.get('categorieId')
+    const departamentId = formData.get('departamentId')
+    const registruId = formData.get('registruId')
 
     if (!file) {
       return NextResponse.json(
@@ -62,20 +64,38 @@ export async function POST(request) {
       )
     }
 
+    // Determină structura de directoare
+    let uploadPath = 'uploads'
+    
+    if (departamentId && registruId) {
+      // Obține numele departamentului și registrului pentru structura de foldere
+      const departament = await prisma.departament.findUnique({
+        where: { id: departamentId },
+        select: { nume: true }
+      })
+      
+      const registru = await prisma.registru.findUnique({
+        where: { id: registruId },
+        select: { nume: true }
+      })
+
+      if (departament && registru) {
+        // Curăță numele pentru a fi safe pentru filesystem
+        const departamentNume = departament.nume.replace(/[^a-zA-Z0-9\-_]/g, '_')
+        const registruNume = registru.nume.replace(/[^a-zA-Z0-9\-_]/g, '_')
+        uploadPath = `uploads/${departamentNume}/${registruNume}`
+      }
+    } else {
+      // Fallback la structura cu an
+      const currentYear = new Date().getFullYear()
+      uploadPath = `uploads/${currentYear}`
+    }
+
     // Creează directorul pentru upload dacă nu există
-    const uploadDir = join(process.cwd(), 'uploads')
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
-    }
-
-    // Creează subdirector pentru anul curent
-    const currentYear = new Date().getFullYear()
-    const yearDir = join(uploadDir, currentYear.toString())
-    if (!existsSync(yearDir)) {
-      await mkdir(yearDir, { recursive: true })
-    }
-
-    // Generează nume unic pentru fișier
+    const fullUploadDir = join(process.cwd(), uploadPath)
+    if (!existsSync(fullUploadDir)) {
+      await mkdir(fullUploadDir, { recursive: true })
+    }    // Generează nume unic pentru fișier
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     
@@ -88,8 +108,8 @@ export async function POST(request) {
     
     // Nume fișier unic
     const uniqueFileName = `${Date.now()}_${crypto.randomUUID()}.${extension}`
-    const filePath = join(yearDir, uniqueFileName)
-    const relativePath = `uploads/${currentYear}/${uniqueFileName}`
+    const filePath = join(fullUploadDir, uniqueFileName)
+    const relativePath = `${uploadPath}/${uniqueFileName}`
 
     // Salvează fișierul
     await writeFile(filePath, buffer)

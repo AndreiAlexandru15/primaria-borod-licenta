@@ -128,11 +128,15 @@ const CATEGORII_DOCUMENTE_INITIALE = [
  */
 async function main() {
   console.log('🌱 Începe popularea bazei de date...')
-
   try {
     // 1. Șterge datele existente (în ordine pentru a respecta foreign keys)
     await prisma.utilizatorRol.deleteMany()
     await prisma.auditLog.deleteMany()
+    await prisma.inregistrare.deleteMany()
+    await prisma.fisier.deleteMany()
+    await prisma.tipDocument.deleteMany()
+    await prisma.registru.deleteMany()
+    await prisma.departament.deleteMany()
     await prisma.utilizator.deleteMany()
     await prisma.primaria.deleteMany()
     await prisma.rolPermisiune.deleteMany()
@@ -341,14 +345,211 @@ async function main() {
       await prisma.categorieDocument.create({
         data: categorie
       })
-    }
-    console.log('📁 Categorii documente create')
+    }    console.log('📁 Categorii documente create')
+
+    // 9. Creează departamentele
+    const departamentAdministrativ = await prisma.departament.create({
+      data: {
+        nume: 'Administrativ',
+        descriere: 'Departament Administrativ și Resurse Umane',
+        cod: 'ADM',
+        primariaId: primariaTest.id
+      }
+    })
+
+    const departamentContabilitate = await prisma.departament.create({
+      data: {
+        nume: 'Contabilitate',
+        descriere: 'Departament Contabilitate și Buget',
+        cod: 'CONT',
+        primariaId: primariaTest.id
+      }
+    })
+
+    const departamentRelatiiPublic = await prisma.departament.create({
+      data: {
+        nume: 'Relații cu Publicul',
+        descriere: 'Departament Relații cu Publicul și Comunicare',
+        cod: 'REL',
+        primariaId: primariaTest.id
+      }
+    })
+
+    console.log('🏢 Departamente create')
+
+    // 10. Creează registrele
+    const registruDeciziePrimar = await prisma.registru.create({
+      data: {
+        nume: 'Decizie Primar',
+        descriere: 'Registru pentru deciziile primarului',
+        cod: 'DP',
+        tipRegistru: 'iesire',
+        departamentId: departamentAdministrativ.id
+      }
+    })
+
+    const registruHotarariCL = await prisma.registru.create({
+      data: {
+        nume: 'Hotărâri Consiliu Local',
+        descriere: 'Registru pentru hotărârile consiliului local',
+        cod: 'HCL',
+        tipRegistru: 'iesire',
+        departamentId: departamentAdministrativ.id
+      }
+    })
+
+    const registruContabilitate = await prisma.registru.create({
+      data: {
+        nume: 'Contabilitate',
+        descriere: 'Registru pentru documentele de contabilitate',
+        cod: 'CON',
+        tipRegistru: 'intrare_iesire',
+        departamentId: departamentContabilitate.id
+      }
+    })
+
+    const registruCorespondentaCetateni = await prisma.registru.create({
+      data: {
+        nume: 'Corespondența cu Cetățenii',
+        descriere: 'Registru pentru corespondența cu cetățenii',
+        cod: 'COR',
+        tipRegistru: 'intrare_iesire',
+        departamentId: departamentRelatiiPublic.id
+      }
+    })
+
+    console.log('📋 Registre create')
+
+    // 11. Creează tipurile de documente specifice pentru fiecare registru
+
+    // Tipuri documente pentru Decizie Primar
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Dispoziție Primar',
+        descriere: 'Dispoziții emise de primar',
+        cod: 'DISP',
+        registruId: registruDeciziePrimar.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Ordin Primar',
+        descriere: 'Ordine emise de primar',
+        cod: 'ORD',
+        registruId: registruDeciziePrimar.id
+      }
+    })
+
+    // Tipuri documente pentru Hotărâri Consiliu Local
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Hotărâre Consiliu Local',
+        descriere: 'Hotărâri ale consiliului local',
+        cod: 'HCL',
+        registruId: registruHotarariCL.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Proces Verbal Ședință',
+        descriere: 'Procese verbale ale ședințelor consiliului',
+        cod: 'PVS',
+        registruId: registruHotarariCL.id
+      }
+    })
+
+    // Tipuri documente pentru Contabilitate
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Factură',
+        descriere: 'Facturi și documente de plată',
+        cod: 'FACT',
+        registruId: registruContabilitate.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Contract',
+        descriere: 'Contracte și convenții',
+        cod: 'CONTR',
+        registruId: registruContabilitate.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Raport Financiar',
+        descriere: 'Rapoarte și situații financiare',
+        cod: 'RAF',
+        registruId: registruContabilitate.id
+      }
+    })
+
+    // Tipuri documente pentru Corespondența cu Cetățenii
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Sesizare',
+        descriere: 'Sesizări din partea cetățenilor',
+        cod: 'SES',
+        registruId: registruCorespondentaCetateni.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Cerere',
+        descriere: 'Cereri din partea cetățenilor',
+        cod: 'CER',
+        registruId: registruCorespondentaCetateni.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Plângere',
+        descriere: 'Plângeri din partea cetățenilor',
+        cod: 'PLA',
+        registruId: registruCorespondentaCetateni.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Comunicat',
+        descriere: 'Comunicate către cetățeni',
+        cod: 'COM',
+        registruId: registruCorespondentaCetateni.id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Răspuns',
+        descriere: 'Răspunsuri la solicitările cetățenilor',
+        cod: 'RASP',
+        registruId: registruCorespondentaCetateni.id
+      }
+    })
+
+    console.log('📝 Tipuri documente create')
 
     console.log('\n✅ Seed complet cu succes!')
     console.log('\n📋 Utilizatori de test creați:')
     console.log('1. Super Admin: admin@sector1.ro / parola123')
     console.log('2. Administrator: manager@sector1.ro / parola123')
     console.log('3. Operator: operator@sector1.ro / parola123')
+    console.log('\n🏢 Departamente create:')
+    console.log('1. Administrativ (ADM)')
+    console.log('2. Contabilitate (CONT)')
+    console.log('3. Relații cu Publicul (REL)')
+    console.log('\n📋 Registre create cu tipuri de documente:')
+    console.log('1. Decizie Primar: Dispoziție Primar, Ordin Primar')
+    console.log('2. Hotărâri Consiliu Local: Hotărâre CL, Proces Verbal Ședință')
+    console.log('3. Contabilitate: Factură, Contract, Raport Financiar')
+    console.log('4. Corespondența cu Cetățenii: Sesizare, Cerere, Plângere, Comunicat, Răspuns')
     
   } catch (error) {
     console.error('❌ Eroare în timpul seed-ului:', error)

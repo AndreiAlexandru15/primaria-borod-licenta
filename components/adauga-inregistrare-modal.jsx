@@ -22,7 +22,14 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { 
   Plus, 
   FileText, 
@@ -40,23 +47,34 @@ export function AdaugaInregistrareModal({
   departamentId = null, 
   registruId = null,
   trigger = null 
-}) {
-  const [isOpen, setIsOpen] = useState(false)
+}) {  const [isOpen, setIsOpen] = useState(false)
   const [formData, setFormData] = useState({
     expeditor: '',
     destinatar: '',
     obiect: '',
     observatii: '',
     dataDocument: new Date().toISOString().split('T')[0], // Data curentă ca default
+    tipDocumentId: '',
     fisierAtas: null
   })
-    const [file, setFile] = useState(null)
+  const [file, setFile] = useState(null)  
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef(null)
   const queryClient = useQueryClient()
-
+  
+  // Query pentru tipurile de documente ale registrului
+  const { data: tipuriDocumente = [] } = useQuery({
+    queryKey: ['tipuri-documente', registruId],
+    queryFn: async () => {
+      if (!registruId) return []
+      const response = await axios.get(`/api/tipuri-documente?registruId=${registruId}`)
+      return response.data.success ? response.data.data : []
+    },
+    enabled: !!registruId
+  })
+  
   // Mutation pentru upload fișier
   const uploadFileMutation = useMutation({
     mutationFn: async (fileToUpload) => {
@@ -64,6 +82,14 @@ export function AdaugaInregistrareModal({
       
       const formDataUpload = new FormData()
       formDataUpload.append('file', fileToUpload)
+      
+      // Adaugă departamentId și registruId pentru organizarea fișierelor
+      if (departamentId) {
+        formDataUpload.append('departamentId', departamentId)
+      }
+      if (registruId) {
+        formDataUpload.append('registruId', registruId)
+      }
       
       setUploadProgress(0)
 
@@ -117,22 +143,26 @@ export function AdaugaInregistrareModal({
     onError: (error) => {
       notifyError('Eroare la ștergerea fișierului')
     }
-  })
-  // Mutation pentru creare înregistrare
+  })  // Mutation pentru creare înregistrare
   const createMutation = useMutation({
     mutationFn: async (data) => {
       // Se adaugă automat departamentId și registruId la payload
+      // și se transformă fisierAtas în fisiereIds (array)
       const payload = {
         ...data,
         registruId,
-        departamentId
+        departamentId,
+        fisiereIds: data.fisierAtas ? [data.fisierAtas] : []
       }
+      // Eliminăm fisierAtas din payload pentru că API-ul nu îl recunoaște
+      delete payload.fisierAtas
+      
       const response = await axios.post('/api/inregistrari', payload)
       if (!response.data.success) {
         throw new Error(response.data.error || 'Eroare la crearea înregistrării')
       }
       return response.data.data
-    },    onSuccess: (data) => {
+    },onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['inregistrari'] })
       if (registruId) {
         queryClient.invalidateQueries({ queryKey: ['registru', registruId] })
@@ -156,6 +186,7 @@ export function AdaugaInregistrareModal({
       obiect: '',
       observatii: '',
       dataDocument: new Date().toISOString().split('T')[0],
+      tipDocumentId: '',
       fisierAtas: null
     })
     setFile(null)
@@ -164,17 +195,18 @@ export function AdaugaInregistrareModal({
   }
   const handleSubmit = (e) => {
     e.preventDefault()
-    
+    if (!formData.tipDocumentId) {
+      notifyError('Tipul de document este obligatoriu')
+      return
+    }
     if (!formData.obiect.trim()) {
       notifyError('Obiectul este obligatoriu')
       return
     }
-
     if (!departamentId || !registruId) {
       notifyError('Departamentul și registrul sunt obligatorii pentru a crea înregistrarea')
       return
     }
-
     // Trimit datele cu departamentId și registruId incluse automat
     createMutation.mutate(formData)
   }
@@ -327,6 +359,37 @@ export function AdaugaInregistrareModal({
             />
           </div>
 
+          {/* Tip Document */}
+          <div className="space-y-2">
+            <Label htmlFor="tipDocumentId" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Tip document *
+            </Label>
+            <Select
+              value={formData.tipDocumentId}
+              onValueChange={val => setFormData(prev => ({ ...prev, tipDocumentId: val }))}
+              required
+              name="tipDocumentId"
+            >
+              <SelectTrigger id="tipDocumentId">
+                <SelectValue placeholder="Selectează tipul documentului" />
+              </SelectTrigger>
+              <SelectContent>
+                {tipuriDocumente.length === 0 ? (
+                  <SelectItem value="" disabled>
+                    Niciun tip disponibil
+                  </SelectItem>
+                ) : (
+                  tipuriDocumente.map(tip => (
+                    <SelectItem key={tip.id} value={tip.id}>
+                      {tip.nume}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Upload Zone */}
           <div className="space-y-4">
             <Label className="flex items-center gap-2">
@@ -446,4 +509,3 @@ export function AdaugaInregistrareModal({
   )
 }
 
- 

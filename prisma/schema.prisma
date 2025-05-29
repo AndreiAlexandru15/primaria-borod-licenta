@@ -195,17 +195,39 @@ model Registru {
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
   // Relații
-  departament  Departament    @relation(fields: [departamentId], references: [id])
-  inregistrari Inregistrare[]
+  departament    Departament      @relation(fields: [departamentId], references: [id])
+  inregistrari   Inregistrare[]
+  tipuriDocument TipDocument[]
 
   @@unique([departamentId, cod])
   @@map("registre")
+}
+
+// Tipuri de documente specifice fiecărui registru
+model TipDocument {
+  id          String   @id @default(uuid())
+  registruId  String   @map("registru_id")
+  nume        String
+  cod         String
+  descriere   String?
+  activ       Boolean  @default(true)
+  ordineSortare Int?   @map("ordine_sortare") @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relații
+  registru     Registru       @relation(fields: [registruId], references: [id], onDelete: Cascade)
+  inregistrari Inregistrare[]
+
+  @@unique([registruId, cod])
+  @@map("tipuri_documente")
 }
 
 // Înregistrări în Registratură
 model Inregistrare {
   id                String             @id @default(uuid())
   registruId        String             @map("registru_id")
+  tipDocumentId     String?            @map("tip_document_id")
   numarInregistrare String             @map("numar_inregistrare")
   dataInregistrare  DateTime           @default(now()) @map("data_inregistrare") @db.Date
   expeditor         String?
@@ -219,8 +241,9 @@ model Inregistrare {
   updatedAt         DateTime           @updatedAt @map("updated_at")
 
   // Relații
-  registru Registru @relation(fields: [registruId], references: [id])
-  fisiere  Fisier[]
+  registru    Registru     @relation(fields: [registruId], references: [id])
+  tipDocument TipDocument? @relation(fields: [tipDocumentId], references: [id])
+  fisiere     Fisier[]
 
   @@unique([registruId, numarInregistrare, dataInregistrare], name: "unique_registration")
   @@map("inregistrari")

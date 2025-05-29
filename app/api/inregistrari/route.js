@@ -5,6 +5,9 @@
 
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
+import { rename } from 'fs/promises'
+import { join, dirname, extname } from 'path'
+import { existsSync } from 'fs'
 
 const prisma = new PrismaClient()
 
@@ -13,6 +16,55 @@ function serializeBigInt(obj) {
   return JSON.parse(JSON.stringify(obj, (key, value) =>
     typeof value === 'bigint' ? value.toString() : value
   ))
+}
+
+// Helper function to rename files based on registration number
+async function renameFisiereForInregistrare(inregistrareId, numarInregistrare) {
+  try {
+    const fisiere = await prisma.fisier.findMany({
+      where: { inregistrareId },
+      select: {
+        id: true,
+        numeOriginal: true,
+        numeFisierDisk: true,
+        caleRelativa: true,
+        extensie: true
+      }
+    })
+
+    for (const fisier of fisiere) {
+      const oldPath = join(process.cwd(), fisier.caleRelativa)
+      
+      if (existsSync(oldPath)) {
+        // Creează noul nume: "Nr. Înregistrare_numeOriginal"
+        const extensie = fisier.extensie ? `.${fisier.extensie}` : ''
+        const numeOriginalFaraExtensie = fisier.numeOriginal.replace(new RegExp(`\\.${fisier.extensie}$`, 'i'), '')
+        const numeNou = `${numarInregistrare}_${numeOriginalFaraExtensie}${extensie}`
+        
+        // Calculează noua cale
+        const oldDir = dirname(fisier.caleRelativa)
+        const nouaCaleRelativa = `${oldDir}/${numeNou}`.replace(/\\/g, '/')
+        const newPath = join(process.cwd(), nouaCaleRelativa)
+
+        // Redenumește fișierul pe disk
+        await rename(oldPath, newPath)
+
+        // Actualizează baza de date
+        await prisma.fisier.update({
+          where: { id: fisier.id },
+          data: {
+            numeFisierDisk: numeNou,
+            caleRelativa: nouaCaleRelativa
+          }
+        })
+
+        console.log(`Fișier redenumit: ${fisier.numeFisierDisk} -> ${numeNou}`)
+      }
+    }
+  } catch (error) {
+    console.error('Eroare la redenumirea fișierelor:', error)
+    // Nu aruncăm eroare pentru a nu afecta crearea înregistrării
+  }
 }
 
 // GET - Listează înregistrările cu filtrare
@@ -148,20 +200,13 @@ export async function POST(request) {
         },
         { status: 404 }
       )
-    }
-
-    // Generează numărul de înregistrare
+    }    // Generează numărul de înregistrare
     const dataInregistrare = new Date()
-    const year = dataInregistrare.getFullYear()
     
-    // Găsește ultimul număr de înregistrare pentru anul curent
+    // Găsește ultimul număr de înregistrare pentru registru (fără an)
     const ultimaInregistrare = await prisma.inregistrare.findFirst({
       where: {
-        registruId: registruId,
-        dataInregistrare: {
-          gte: new Date(`${year}-01-01`),
-          lt: new Date(`${year + 1}-01-01`)
-        }
+        registruId: registruId
       },
       orderBy: {
         numarInregistrare: 'desc'
@@ -175,7 +220,7 @@ export async function POST(request) {
       nextNumber = currentNumber + 1
     }
 
-    const numarInregistrare = `${registru.cod}-${year}-${String(nextNumber).padStart(4, '0')}`
+    const numarInregistrare = `${registru.cod}-${String(nextNumber).padStart(4, '0')}`
 
     // Creează înregistrarea în tranzacție
     const result = await prisma.$transaction(async (tx) => {
@@ -218,6 +263,11 @@ export async function POST(request) {
           }
         }
       })    })
+
+    // Redenumește fișierele pe disk cu numărul de înregistrare
+    if (fisiereIds.length > 0) {
+      await renameFisiereForInregistrare(result.id, numarInregistrare)
+    }
 
     // Serialize the result to handle BigInt values
     const serializedResult = serializeBigInt(result)
