@@ -30,6 +30,7 @@ import {
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { notifyError, crudNotifications } from '@/lib/notifications'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   FileText, 
   User, 
@@ -38,7 +39,9 @@ import {
   Trash2,
   Paperclip,
   Calendar,
-  Edit
+  Edit,
+  Loader2,
+  X
 } from "lucide-react"
 
 export function EditeazaInregistrareModal({ 
@@ -49,47 +52,61 @@ export function EditeazaInregistrareModal({
   registruId,
   onSuccess 
 }) {
+  // Funcție pentru truncarea textului
+  const truncateText = (text, maxLength = 50) => {
+    if (!text) return ''
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+  }
   const [formData, setFormData] = useState({
     expeditor: '',
     destinatarId: '',
-    obiect: '',    observatii: '',
-    dataDocument: '',
+    obiect: '',
+    observatii: '',
+    dataDocument: new Date(),
+    dataInregistrare: new Date(),
     tipDocumentId: '',
     numarDocument: '',
+    fisierAtas: null
   })
   
   const [file, setFile] = useState(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
-  const [fisierVechiSters, setFisierVechiSters] = useState(false) // urmărește dacă fișierul vechi a fost șters manual
+  const [fisierVechiSters, setFisierVechiSters] = useState(false)
   const fileInputRef = useRef(null)
   const queryClient = useQueryClient()
+
   // Populează formularul cu datele înregistrării când se deschide modalul
   useEffect(() => {
     if (isOpen && inregistrare) {
       console.log('Populez formularul cu:', inregistrare)
-      console.log('tipDocumentId din inregistrare:', inregistrare.tipDocumentId)
       
       // Obține data documentului din primul fișier atașat
       const dataDocument = inregistrare.fisiere?.[0]?.dataFisier 
-        ? new Date(inregistrare.fisiere[0].dataFisier).toISOString().split('T')[0] 
-        : '';
-        setFormData({
-        expeditor: inregistrare.expeditor || '',
-        destinatarId: inregistrare.destinatarId?.toString() || '',
-        obiect: inregistrare.obiect || '',
-        observatii: inregistrare.observatii || '',
-        dataDocument: dataDocument,
-        tipDocumentId: inregistrare.tipDocumentId?.toString() || '',
-        numarDocument: inregistrare.numarDocument || '',
-        fisierAtas: inregistrare.fisiere?.[0]?.id || null // presupunem un singur fișier
-      })
-      setFile(null)
-      setFisierVechiSters(false) // resetează când se deschide modalul
-    }
+        ? new Date(inregistrare.fisiere[0].dataFisier)
+        : new Date()
+
+      const dataInregistrare = inregistrare.dataInregistrare 
+      ? new Date(inregistrare.dataInregistrare) 
+      : new Date()
+       setFormData({
+      expeditor: inregistrare.expeditor || '',
+      destinatarId: inregistrare.destinatarId?.toString() || '',
+      obiect: inregistrare.obiect || '',
+      observatii: inregistrare.observatii || '',
+      dataDocument: dataDocument,
+      dataInregistrare: dataInregistrare,
+      tipDocumentId: inregistrare.tipDocumentId?.toString() || '',
+      numarDocument: inregistrare.numarDocument || '',
+      fisierAtas: inregistrare.fisiere?.[0]?.id || null
+    })
+    setFile(null)
+    setFisierVechiSters(false)
+  }
   }, [isOpen, inregistrare])
-    // Query pentru tipurile de documente ale registrului
+
+  // Query pentru tipurile de documente ale registrului
   const { data: tipuriDocumente = [] } = useQuery({
     queryKey: ['tipuri-documente', registruId],
     queryFn: async () => {
@@ -112,10 +129,12 @@ export function EditeazaInregistrareModal({
     },
     enabled: isOpen && !!departamentId
   })
+
   // Mutation pentru upload fișier
   const uploadFileMutation = useMutation({
     mutationFn: async (fileToUpload) => {
       setIsUploading(true)
+      setUploadProgress(0)
       
       const formDataUpload = new FormData()
       formDataUpload.append('file', fileToUpload)
@@ -127,10 +146,10 @@ export function EditeazaInregistrareModal({
       if (registruId) {
         formDataUpload.append('registruId', registruId)
       }
-        // Adaugă informații pentru numele fișierului la editare
+
+      // Adaugă informații pentru numele fișierului la editare
       if (inregistrare) {
         formDataUpload.append('numarInregistrare', inregistrare.numarInregistrare)
-        // Folosește numele fișierului fără extensie
         const numeDocument = fileToUpload.name.split('.')[0]
         formDataUpload.append('numeDocument', numeDocument)
       }
@@ -152,9 +171,10 @@ export function EditeazaInregistrareModal({
       return response.data.data
     },
     onSuccess: (uploadedFile) => {
+      setFile(uploadedFile)
       setFormData(prev => ({ ...prev, fisierAtas: uploadedFile.id }))
       setIsUploading(false)
-      setUploadProgress(0)
+      setUploadProgress(100)
     },
     onError: (error) => {
       setIsUploading(false)
@@ -162,6 +182,7 @@ export function EditeazaInregistrareModal({
       notifyError('Eroare la upload: ' + error.message)
     }
   })
+
   // Mutation pentru editarea înregistrării
   const editInregistrareMutation = useMutation({
     mutationFn: async (data) => {
@@ -170,8 +191,8 @@ export function EditeazaInregistrareModal({
         throw new Error(response.data.error || 'Eroare la editarea înregistrării')
       }
       return response.data.data
-    },    onSuccess: (data) => {
-      // Invalidate exact query key used by lista component (robust, ca la departamente)
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registruId], exact: false })
       crudNotifications.edit('Înregistrarea', data.numarInregistrare)
       onOpenChange(false)
@@ -191,9 +212,10 @@ export function EditeazaInregistrareModal({
         throw new Error(response.data.error || 'Eroare la ștergerea fișierului')
       }
       return response.data
-    },    onSuccess: () => {
+    },
+    onSuccess: () => {
       setFormData(prev => ({ ...prev, fisierAtas: null }))
-      setFisierVechiSters(true) // marchează că fișierul vechi a fost șters manual
+      setFisierVechiSters(true)
       crudNotifications.deleted('Fișierul', inregistrare.fisiere?.[0]?.numeOriginal || 'fișier')
     },
     onError: (error) => {
@@ -206,21 +228,47 @@ export function EditeazaInregistrareModal({
       destinatarId: '',
       obiect: '',
       observatii: '',
-      dataDocument: '',
+      dataDocument: new Date(),
+      dataInregistrare: new Date(),
       tipDocumentId: '',
       numarDocument: '',
+      fisierAtas: null
     })
     setFile(null)
     setUploadProgress(0)
     setIsUploading(false)
-    setFisierVechiSters(false) // resetează și această variabilă
+    setFisierVechiSters(false)
   }
 
   const handleFileSelect = useCallback((selectedFile) => {
-    if (selectedFile) {
-      setFile(selectedFile)
-      uploadFileMutation.mutate(selectedFile)
+    if (!selectedFile) return
+    
+    // Validare mărime fișier (max 10MB)
+    const maxSize = 10 * 1024 * 1024
+    if (selectedFile.size > maxSize) {
+      notifyError('Fișierul este prea mare (max 10MB)')
+      return
     }
+    
+    // Validare tip fișier
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'text/plain'
+    ]
+    
+    if (!allowedTypes.includes(selectedFile.type)) {
+      notifyError('Tip de fișier neacceptat')
+      return
+    }
+
+    uploadFileMutation.mutate(selectedFile)
   }, [uploadFileMutation])
 
   const handleDrop = useCallback((e) => {
@@ -243,6 +291,15 @@ export function EditeazaInregistrareModal({
     setIsDragOver(false)
   }, [])
 
+  const handleRemoveFile = () => {
+    if (file?.id) {
+      deleteFileMutation.mutate(file.id)
+    }
+    setFile(null)
+    setFormData(prev => ({ ...prev, fisierAtas: null }))
+    setUploadProgress(0)
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!formData.expeditor.trim()) {
@@ -261,7 +318,7 @@ export function EditeazaInregistrareModal({
       notifyError('Numărul documentului este obligatoriu')
       return
     }
-    if (!formData.dataDocument || !formData.dataDocument.trim()) {
+    if (!formData.dataDocument) {
       notifyError('Data documentului este obligatorie')
       return
     }
@@ -273,6 +330,7 @@ export function EditeazaInregistrareModal({
       notifyError('Este obligatoriu să atașați un fișier!')
       return
     }
+
     // Determină dacă trebuie șters fișierul vechi
     const idFisierVechi = inregistrare.fisiere?.[0]?.id || null
     const idFisierNou = formData.fisierAtas || null
@@ -280,11 +338,23 @@ export function EditeazaInregistrareModal({
     if (!fisierVechiSters && idFisierVechi && idFisierNou && idFisierVechi !== idFisierNou) {
       fisierVechiId = idFisierVechi
     }
+
+    // Formatează data corect
+    const formatDate = (date) => {
+      if (!date) return null;
+      if (typeof date === 'string') return date;
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     const dataToSubmit = {
       ...formData,
       departamentId: parseInt(departamentId),
       registruId: parseInt(registruId),
-      dataDocument: formData.dataDocument || null,
+      dataDocument: formatDate(formData.dataDocument),
       tipDocumentId: formData.tipDocumentId || null,
       destinatarId: formData.destinatarId || null,
       fisierAtas: idFisierNou,
@@ -294,19 +364,8 @@ export function EditeazaInregistrareModal({
     editInregistrareMutation.mutate(dataToSubmit)
   }
 
-  const removeFile = () => {
-    setFile(null)
-    setFormData(prev => ({ ...prev, fisierAtas: null }))
-  }  // Sincronizează tipDocumentId după ce tipuriDocumente s-a încărcat
+  // Sincronizează tipDocumentId după ce tipuriDocumente s-a încărcat
   useEffect(() => {
-    console.log('Verificare sincronizare tip document:', {
-      isOpen,
-      inregistrare: !!inregistrare,
-      tipuriDocumenteLength: tipuriDocumente.length,
-      inregistrareTipDocumentId: inregistrare?.tipDocumentId,
-      formDataTipDocumentId: formData.tipDocumentId
-    })
-    
     if (
       isOpen &&
       inregistrare &&
@@ -314,47 +373,43 @@ export function EditeazaInregistrareModal({
       inregistrare.tipDocumentId &&
       !formData.tipDocumentId
     ) {
-      console.log('Setez tipDocumentId din inregistrare:', inregistrare.tipDocumentId)
       setFormData(prev => ({
         ...prev,
         tipDocumentId: inregistrare.tipDocumentId.toString()
       }))
     }
   }, [isOpen, inregistrare, tipuriDocumente, formData.tipDocumentId])
-  // Corectează formatul datei dacă nu este deja string YYYY-MM-DD
-  useEffect(() => {
-    if (
-      isOpen &&
-      inregistrare &&
-      inregistrare.fisiere?.[0]?.dataFisier &&
-      (typeof formData.dataDocument !== 'string' || formData.dataDocument.length !== 10)
-    ) {
-      setFormData(prev => ({
-        ...prev,
-        dataDocument: new Date(inregistrare.fisiere[0].dataFisier).toISOString().split('T')[0]
-      }))
-    }
-  }, [isOpen, inregistrare, formData.dataDocument])
+
+  // Verifică dacă tipul de document este valid
+  const isTipDocumentValid = formData.tipDocumentId && formData.tipDocumentId !== ''
+
+  // Obține utilizatorul selectat pentru afișare truncată
+  const getSelectedUtilizator = () => {
+    if (!formData.destinatarId) return null
+    return utilizatori.find(u => u.id === formData.destinatarId)
+  }
+
+  // Obține tipul de document selectat pentru afișare truncată  
+  const getSelectedTipDocument = () => {
+    if (!formData.tipDocumentId) return null
+    return tipuriDocumente.find(t => t.id === formData.tipDocumentId)
+  }
 
   if (!inregistrare) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Edit className="h-5 w-5" />
-            Editează Înregistrarea #{inregistrare.numarInregistrare}
-          </DialogTitle>
-          <DialogDescription>
-            Modifică datele înregistrării din registru.
-          </DialogDescription>
+          <DialogTitle>Editează Înregistrarea #{inregistrare.numarInregistrare}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="expeditor">
+          {/* Rândul 1: Expeditor | Destinatar */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Expeditor */}
+            <div className="space-y-1">
+              <Label htmlFor="expeditor" className="text-sm">
                 Expeditor <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -363,23 +418,27 @@ export function EditeazaInregistrareModal({
                 onChange={(e) => setFormData(prev => ({ ...prev, expeditor: e.target.value }))}
                 placeholder="Numele expeditorului"
                 required
+                className="text-sm"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="destinatar">Destinatar <span className="text-red-500">*</span></Label>
+            {/* Destinatar */}
+            <div className="space-y-1">
+              <Label htmlFor="destinatar" className="text-sm">
+                Destinatar <span className="text-red-500">*</span>
+              </Label>
               <Select 
                 value={formData.destinatarId} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, destinatarId: value }))}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm h-10 max-w-full">
                   <SelectValue placeholder="Selectează destinatarul" />
                 </SelectTrigger>
                 <SelectContent>
                   {utilizatori.map((user) => (
-                    <SelectItem key={user.id} value={user.id.toString()}>
-                      {user.nume} {user.prenume} {user.functie && `(${user.functie})`}
+                    <SelectItem key={user.id} value={user.id.toString()} className="text-sm">
+                      {truncateText(`${user.nume} ${user.prenume} ${user.functie && `(${user.functie})`}`, 40)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -387,179 +446,250 @@ export function EditeazaInregistrareModal({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="obiect">
-              Obiect <span className="text-red-500">*</span>
-            </Label>
-            <Textarea
-              id="obiect"
-              value={formData.obiect}
-              onChange={(e) => setFormData(prev => ({ ...prev, obiect: e.target.value }))}
-              placeholder="Obiectul înregistrării"
-              className="min-h-[80px]"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="observatii">Observații</Label>
-            <Textarea
-              id="observatii"
-              value={formData.observatii}
-              onChange={(e) => setFormData(prev => ({ ...prev, observatii: e.target.value }))}
-              placeholder="Observații suplimentare"
-              className="min-h-[60px]"
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="numarDocument">Număr Document <span className="text-red-500">*</span></Label>
-              <Input
-                id="numarDocument"
-                value={formData.numarDocument}
-                onChange={(e) => setFormData(prev => ({ ...prev, numarDocument: e.target.value }))}
-                placeholder="Nr. document"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dataDocument">Data Document <span className="text-red-500">*</span></Label>
-              <Input
-                id="dataDocument"
-                type="date"
-                value={formData.dataDocument}
-                onChange={(e) => setFormData(prev => ({ ...prev, dataDocument: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tipDocument">Tip Document <span className="text-red-500">*</span></Label>
+          {/* Rândul 2: Tip document | Număr document */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Tipul de document */}
+            <div className="space-y-1">
+              <Label htmlFor="tipDocument" className="text-sm">
+                Tip Document <span className="text-red-500">*</span>
+              </Label>
               <Select 
                 value={formData.tipDocumentId} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, tipDocumentId: value }))}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger className="text-sm h-10 max-w-full">
                   <SelectValue placeholder="Selectează tipul" />
-                </SelectTrigger>                <SelectContent>
+                </SelectTrigger>
+                <SelectContent>
                   {tipuriDocumente.map((tip) => (
-                    <SelectItem key={tip.id} value={tip.id.toString()}>
-                      {tip.nume}
+                    <SelectItem key={tip.id} value={tip.id.toString()} className="text-sm">
+                      {truncateText(`${tip.nume}${tip.categorie ? ` (${tip.categorie.nume})` : ''}`, 45)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Numărul documentului */}
+            <div className="space-y-1">
+              <Label htmlFor="numarDocument" className="text-sm">
+                Numărul documentului <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="numarDocument"
+                value={formData.numarDocument}
+                onChange={(e) => setFormData(prev => ({ ...prev, numarDocument: e.target.value }))}
+                placeholder="Numărul documentului"
+                required
+                className="text-sm"
+              />
+            </div>
           </div>
 
-          {/* File Upload Section */}
-          <div className="space-y-2">
-            <Label>Fișier Atașat <span className="text-red-500">*</span></Label>
-            {formData.fisierAtas && !file && (
-              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded w-full mb-2">
-                <File className="h-5 w-5 text-blue-600" />
-                <span className="text-sm font-medium flex-1 text-left">
-                  {inregistrare.fisiere?.[0]?.numeOriginal || 'Fișier existent'}
-                </span>                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    if (inregistrare.fisiere?.[0]?.id) {
-                      deleteFileMutation.mutate(inregistrare.fisiere[0].id)
-                    } else {
-                      setFormData(prev => ({ ...prev, fisierAtas: null }))
-                    }
-                  }}
-                  className="h-6 w-6 p-0"
-                  disabled={deleteFileMutation.isPending}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            <Card 
-              className={`border-2 border-dashed transition-colors ${
-                isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-              }`}
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-            >
-              <CardContent className="flex flex-col items-center justify-center p-6 text-center">
-                {isUploading ? (
-                  <div className="w-full space-y-2">
-                    <Upload className="h-8 w-8 mx-auto text-blue-500 animate-pulse" />
-                    <p className="text-sm text-gray-600">Se încarcă fișierul...</p>
-                    <Progress value={uploadProgress} className="w-full" />
-                    <p className="text-xs text-gray-500">{uploadProgress}%</p>
-                  </div>
-                ) : file ? (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded w-full">
-                    <File className="h-5 w-5 text-blue-600" />
-                    <span className="text-sm font-medium flex-1 text-left">{file.name}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={removeFile}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Upload className="h-8 w-8 mx-auto text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">
-                        Trage și lasă un fișier aici sau{" "}
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="p-0 h-auto font-semibold"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          selectează
-                        </Button>
+          {/* Rândul 3: Obiect | Observații */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Obiect */}
+            <div className="space-y-1">
+              <Label htmlFor="obiect" className="text-sm">
+                Obiect <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="obiect"
+                value={formData.obiect}
+                onChange={(e) => setFormData(prev => ({ ...prev, obiect: e.target.value }))}
+                placeholder="Obiectul documentului"
+                required
+                className="text-sm"
+              />
+            </div>
+
+            {/* Observații */}
+            <div className="space-y-1">
+              <Label htmlFor="observatii" className="text-sm">Observații</Label>
+              <Input
+                id="observatii"
+                value={formData.observatii}
+                onChange={(e) => setFormData(prev => ({ ...prev, observatii: e.target.value }))}
+                placeholder="Observații suplimentare (opțional)"
+                className="text-sm"
+              />
+            </div>
+          </div>          {/* Rândul 4: Data document | Data înregistrare */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Data documentului */}
+            <div className="space-y-1">
+              <Label htmlFor="dataDocument" className="text-sm">
+                Data documentului <span className="text-red-500">*</span>
+              </Label>
+              <DatePicker
+                value={formData.dataDocument}
+                onChange={(date) => setFormData(prev => ({
+                  ...prev,
+                  dataDocument: date || new Date()
+                }))}
+                placeholder="Selectează data documentului"
+                className="text-sm"
+              />
+            </div>
+
+            {/* Data înregistrării */}
+            <div className="space-y-1">
+              <Label htmlFor="dataInregistrare" className="text-sm">
+                Data înregistrării <span className="text-red-500">*</span>
+              </Label>
+              <DatePicker
+                value={formData.dataInregistrare}
+                onChange={(date) => setFormData(prev => ({
+                  ...prev,
+                  dataInregistrare: date || new Date()
+                }))}
+                placeholder="Selectează data înregistrării"
+                className="text-sm"
+                disabled={true}
+              />
+            </div>
+          </div>
+
+          {/* Upload fișier - pe toată lățimea */}
+          <div className="space-y-1">
+            <Label className="text-sm">
+              Fișier atașat <span className="text-red-500">*</span>
+            </Label>
+            
+            {/* Afișează fișierul existent dacă nu a fost șters și nu este încărcat unul nou */}
+            {formData.fisierAtas && !file && !fisierVechiSters && (
+              <div className="border rounded-lg p-3 bg-blue-50 mb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-6 h-6 text-blue-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-blue-800 text-sm truncate">
+                        {truncateText(inregistrare.fisiere?.[0]?.numeOriginal || 'Fișier existent', 30)}
                       </p>
-                      <p className="text-xs text-gray-500">PDF, DOC, DOCX, JPG, PNG (max. 10MB)</p>
+                      <p className="text-xs text-blue-600">Fișier existent</p>
                     </div>
                   </div>
-                )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (inregistrare.fisiere?.[0]?.id) {
+                        deleteFileMutation.mutate(inregistrare.fisiere[0].id)
+                      } else {
+                        setFormData(prev => ({ ...prev, fisierAtas: null }))
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                    disabled={deleteFileMutation.isPending}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Upload zona pentru fișier nou */}
+            {(!formData.fisierAtas || fisierVechiSters) && !file ? (
+              <div
+                className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors
+                  ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
+                  ${!isTipDocumentValid ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => isTipDocumentValid && fileInputRef.current?.click()}
+              >
                 <input
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                  onChange={(e) => {
-                    const selectedFile = e.target.files?.[0]
-                    if (selectedFile) handleFileSelect(selectedFile)
-                  }}
-                  // required eliminat pentru a permite submit dacă există deja un fișier atașat
+                  onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt"
                 />
-              </CardContent>
-            </Card>
+                
+                {isUploading ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-blue-500 mb-2" />
+                    <p className="text-xs text-gray-600">
+                      Se încarcă fișierul... {uploadProgress}%
+                    </p>
+                    <div className="w-32 bg-gray-200 rounded-full h-1.5 mt-2">
+                      <div 
+                        className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <p className="text-xs text-gray-600 mb-1">
+                      Glisează fișierul aici sau fă click pentru a selecta
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, TXT (max 10MB)
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : file ? (
+              <div className="border rounded-lg p-3 bg-green-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FileText className="w-6 h-6 text-green-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-green-800 text-sm truncate">
+                        {truncateText(file.numeOriginal, 30)}
+                      </p>
+                      <p className="text-xs text-green-600">
+                        {(file.marime / 1024 / 1024).toFixed(2)} MB
+                        {file.categorie && ` • ${truncateText(file.categorie.nume, 15)}`}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveFile}
+                    className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+          {/* Butoane */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="submit"
+              disabled={editInregistrareMutation.isPending || isUploading}
+              className="flex-1 text-sm"
+            >
+              {editInregistrareMutation.isPending ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  Se salvează...
+                </>
+              ) : (
+                'Salvează Modificările'
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={editInregistrareMutation.isPending || isUploading}
+              className="text-sm"
             >
               Anulează
             </Button>
-            <Button 
-              type="submit"
-              disabled={editInregistrareMutation.isPending || isUploading}
-            >
-              {editInregistrareMutation.isPending ? 'Se salvează...' : 'Salvează Modificările'}
-            </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
