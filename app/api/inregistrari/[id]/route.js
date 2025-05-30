@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
 // Helper function to convert BigInt to String for JSON serialization
 function serializeBigInt(obj) {
@@ -12,8 +12,6 @@ function serializeBigInt(obj) {
     typeof value === 'bigint' ? value.toString() : value
   ))
 }
-
-const prisma = new PrismaClient()
 
 // GET - Obține o înregistrare specifică
 export async function GET(request, { params }) {

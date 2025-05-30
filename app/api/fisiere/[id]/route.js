@@ -4,19 +4,17 @@
  */
 
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
-
-const prisma = new PrismaClient()
 
 /**
  * DELETE /api/fisiere/[id] - Șterge un fișier din baza de date și din storage
  */
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params
+    const { id } = await params
 
     if (!id || typeof id !== 'string') {
       return NextResponse.json(

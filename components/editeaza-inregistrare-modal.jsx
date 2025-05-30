@@ -245,16 +245,19 @@ export function EditeazaInregistrareModal({
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    
     if (!formData.expeditor.trim()) {
       notifyError('Expeditorul este obligatoriu')
       return
     }
-    
     if (!formData.obiect.trim()) {
       notifyError('Obiectul este obligatoriu')
       return
-    }    // Determină dacă trebuie șters fișierul vechi
+    }    // Dacă nu există niciun fișier atașat, nu permite submitul
+    if (!formData.fisierAtas) {
+      notifyError('Este obligatoriu să atașați un fișier!')
+      return
+    }
+    // Determină dacă trebuie șters fișierul vechi
     const idFisierVechi = inregistrare.fisiere?.[0]?.id || null
     const idFisierNou = formData.fisierAtas || null
     let fisierVechiId = null

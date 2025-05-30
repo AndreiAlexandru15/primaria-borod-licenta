@@ -4,12 +4,10 @@
  */
 
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 import { rename } from 'fs/promises'
 import { join, dirname, extname } from 'path'
 import { existsSync } from 'fs'
-
-const prisma = new PrismaClient()
 
 // Helper function to convert BigInt to String for JSON serialization
 function serializeBigInt(obj) {
