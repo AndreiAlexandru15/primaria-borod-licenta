@@ -152,7 +152,7 @@ export async function PUT(request, { params }) {
           if (fisierExistent.caleRelativa) {
             const fs = require('fs')
             const path = require('path')
-            const filePath = path.join(process.cwd(), 'uploads', fisierExistent.caleRelativa)
+            const filePath = path.join(process.cwd(), fisierExistent.caleRelativa)
             try {
               if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath)
