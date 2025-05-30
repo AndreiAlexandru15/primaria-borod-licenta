@@ -158,7 +158,8 @@ export async function GET(request) {
 }
 
 // POST - Creează o înregistrare nouă cu documente
-export async function POST(request) {  try {
+export async function POST(request) {
+  try {
     const body = await request.json()
     const { 
       registruId, 
@@ -167,12 +168,13 @@ export async function POST(request) {  try {
       obiect, 
       observatii,
       dataDocument, // Data documentului din formular
+      dataInregistrare, // Data înregistrării din formular
       urgent = false, 
       confidential = false,
       tipDocumentId = null,
       fisiereIds = [], // Array de ID-uri de fișiere existente
       confidentialitateId = null, // Adăugat pentru a seta nivelul de confidențialitate
-      numarDocument // <-- nou
+      numarDocument // Numărul documentului
     } = body
 
     // Validare
@@ -191,6 +193,12 @@ export async function POST(request) {  try {
         { status: 400 }
       )
     }
+    if (!numarDocument) {
+      return NextResponse.json(
+        { success: false, error: 'Numărul documentului este obligatoriu' },
+        { status: 400 }
+      )
+    }
 
     // Verifică dacă registrul există
     const registru = await prisma.registru.findUnique({
@@ -205,6 +213,7 @@ export async function POST(request) {  try {
         { status: 404 }
       )
     }
+    
     // Verifică dacă tipul de document există și aparține registrului
     const tipDocument = await prisma.tipDocument.findUnique({
       where: { id: tipDocumentId }
@@ -217,8 +226,10 @@ export async function POST(request) {  try {
         },
         { status: 400 }
       )
-    }    // Generează numărul de înregistrare
-    const dataInregistrare = new Date()
+    }
+
+    // Folosește data înregistrării din formular sau data curentă ca fallback
+    const finalDataInregistrare = dataInregistrare ? new Date(dataInregistrare) : new Date()
     
     // Găsește ultimul număr de înregistrare pentru registru (fără an)
     const ultimaInregistrare = await prisma.inregistrare.findFirst({
@@ -258,7 +269,7 @@ export async function POST(request) {  try {
         data: {
           registruId,
           numarInregistrare,
-          dataInregistrare,
+          dataInregistrare: finalDataInregistrare,
           expeditor,
           destinatarId, // store user ID
           obiect,
@@ -267,9 +278,11 @@ export async function POST(request) {  try {
           confidential,
           tipDocumentId,
           confidentialitateId: finalConfidentialitateId,
-          numarDocument // <-- adăugat
+          numarDocument
         }
-      })      // Atașează fișierele dacă există
+      })
+
+      // Atașează fișierele dacă există
       if (fisiereIds.length > 0) {
         const updateData = {
           inregistrareId: inregistrare.id
@@ -286,7 +299,9 @@ export async function POST(request) {  try {
           },
           data: updateData
         })
-      }// Returnează înregistrarea cu relațiile
+      }
+
+      // Returnează înregistrarea cu relațiile
       return await tx.inregistrare.findUnique({
         where: { id: inregistrare.id },
         include: {
