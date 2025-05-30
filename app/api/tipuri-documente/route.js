@@ -1,157 +1,115 @@
-/**
- * API pentru gestionarea tipurilor de documente
- * @fileoverview CRUD pentru tipuri de documente specifice registrelor
- */
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// Helper function pentru serializarea BigInt
-function serializeBigInt(obj) {
-  return JSON.parse(JSON.stringify(obj, (key, value) =>
-    typeof value === 'bigint' ? value.toString() : value
-  ))
-}
-
-// GET - Listează tipurile de documente
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const registruId = searchParams.get('registruId')
 
-    const where = {}
-    if (registruId) {
-      where.registruId = registruId
+    if (!registruId) {
+      return NextResponse.json(
+        { success: false, error: 'ID-ul registrului este obligatoriu' },
+        { status: 400 }
+      )
     }
 
     const tipuriDocumente = await prisma.tipDocument.findMany({
-      where,
+      where: { 
+        registruId,
+        activ: true 
+      },
       include: {
-        registru: {
+        categorie: {
           select: {
+            id: true,
             nume: true,
             cod: true,
-            departament: {
-              select: {
-                nume: true,
-                cod: true
-              }
-            }
-          }
-        },
-        inregistrari: {
-          select: {
-            id: true
+            descriere: true,
+            perioadaRetentie: true
           }
         }
       },
-      orderBy: {
-        nume: 'asc'
-      }
+      orderBy: [
+        { ordineSortare: 'asc' },
+        { nume: 'asc' }
+      ]
     })
 
-    return NextResponse.json(serializeBigInt({
+    return NextResponse.json({
       success: true,
-      data: tipuriDocumente.map(tip => ({
-        ...tip,
-        _count: {
-          inregistrari: tip.inregistrari.length
-        },
-        inregistrari: undefined // Eliminăm array-ul, păstrăm doar count-ul
-      }))
-    }))
-
+      data: tipuriDocumente
+    })
   } catch (error) {
-    console.error('Eroare la listarea tipurilor de documente:', error)
+    console.error('Eroare la încărcarea tipurilor de documente:', error)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Nu s-au putut lista tipurile de documente',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
+      { success: false, error: 'Nu s-au putut încărca tipurile de documente' },
       { status: 500 }
     )
   }
 }
 
-// POST - Creează tip document nou
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { nume, descriere, cod, registruId } = body
+    const { registruId, categorieId, nume, cod, descriere, ordineSortare } = body
 
-    // Validări
-    if (!nume || !cod || !registruId) {
+    if (!registruId || !nume || !cod) {
       return NextResponse.json(
-        { success: false, error: 'Numele, codul și registrul sunt obligatorii' },
+        { success: false, error: 'Registrul, numele și codul sunt obligatorii' },
         { status: 400 }
       )
     }
 
-    // Verifică dacă registrul există
-    const registru = await prisma.registru.findUnique({
-      where: { id: registruId }
-    })
-
-    if (!registru) {
-      return NextResponse.json(
-        { success: false, error: 'Registrul specificat nu există' },
-        { status: 400 }
-      )
-    }
-
-    // Verifică duplicatul de cod în același registru
-    const existaTip = await prisma.tipDocument.findFirst({
-      where: {
-        cod: cod.toUpperCase(),
-        registruId
+    // Verifică dacă categoria există (dacă este specificată)
+    if (categorieId) {
+      const categorie = await prisma.categorieDocument.findUnique({
+        where: { id: categorieId }
+      })
+      if (!categorie) {
+        return NextResponse.json(
+          { success: false, error: 'Categoria specificată nu există' },
+          { status: 400 }
+        )
       }
-    })
-
-    if (existaTip) {
-      return NextResponse.json(
-        { success: false, error: 'Un tip de document cu acest cod există deja în registru' },
-        { status: 409 }
-      )
     }
 
-    const tipDocumentNou = await prisma.tipDocument.create({
+    const tipDocument = await prisma.tipDocument.create({
       data: {
+        registruId,
+        categorieId: categorieId || null,
         nume: nume.trim(),
+        cod: cod.trim().toUpperCase(),
         descriere: descriere?.trim() || null,
-        cod: cod.toUpperCase().trim(),
-        registruId
+        ordineSortare: ordineSortare || 0
       },
       include: {
-        registru: {
+        categorie: {
           select: {
+            id: true,
             nume: true,
-            cod: true,
-            departament: {
-              select: {
-                nume: true,
-                cod: true
-              }
-            }
+            cod: true
           }
         }
       }
     })
 
-    return NextResponse.json(serializeBigInt({
+    return NextResponse.json({
       success: true,
-      data: tipDocumentNou,
+      data: tipDocument,
       message: 'Tipul de document a fost creat cu succes'
-    }))
-
+    })
   } catch (error) {
     console.error('Eroare la crearea tipului de document:', error)
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { success: false, error: 'Codul tipului de document există deja în acest registru' },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Nu s-a putut crea tipul de document',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      },
+      { success: false, error: 'Nu s-a putut crea tipul de document' },
       { status: 500 }
     )
   }

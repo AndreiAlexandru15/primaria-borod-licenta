@@ -264,9 +264,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
   const handleDelete = (inregistrare) => {
     setSelectedInregistrare(inregistrare)
     setDeleteModalOpen(true)
-  }
-
-  // Mutation pentru ștergerea înregistrării
+  }  // Mutation pentru ștergerea înregistrării
   const deleteInregistrareMutation = useMutation({
     mutationFn: async (id) => {
       const response = await axios.delete(`/api/inregistrari/${id}`)
@@ -276,7 +274,8 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
       return response.data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['inregistrari'])
+      // Invalidate all queries for this register's inregistrari (robust pattern)
+      queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId], exact: false })
       setDeleteModalOpen(false)
       setSelectedInregistrare(null)
     },
@@ -447,9 +446,9 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
         onOpenChange={setEditModalOpen}
         inregistrare={selectedInregistrare}
         departamentId={departmentId}
-        registruId={registerId}
-        onSuccess={() => {
-          queryClient.invalidateQueries(['inregistrari'])
+        registruId={registerId}        onSuccess={() => {
+          // Invalidate exact query key used by this component
+          queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId] })
           setEditModalOpen(false)
           setSelectedInregistrare(null)
         }}

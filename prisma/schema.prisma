@@ -208,18 +208,20 @@ model Registru {
 
 // Tipuri de documente specifice fiecărui registru
 model TipDocument {
-  id          String   @id @default(uuid())
-  registruId  String   @map("registru_id")
-  nume        String
-  cod         String
-  descriere   String?
-  activ       Boolean  @default(true)
-  ordineSortare Int?   @map("ordine_sortare") @default(0)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @map("updated_at")
+  id              String   @id @default(uuid())
+  registruId      String   @map("registru_id")
+  categorieId     String?  @map("categorie_id") // Adaugă relația cu categoria
+  nume            String
+  cod             String
+  descriere       String?
+  activ           Boolean  @default(true)
+  ordineSortare   Int?     @map("ordine_sortare") @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @map("updated_at")
 
   // Relații
-  registru     Registru       @relation(fields: [registruId], references: [id], onDelete: Cascade)
+  registru     Registru           @relation(fields: [registruId], references: [id], onDelete: Cascade)
+  categorie    CategorieDocument? @relation(fields: [categorieId], references: [id]) // Noua relație
   inregistrari Inregistrare[]
 
   @@unique([registruId, cod])
@@ -277,7 +279,8 @@ model CategorieDocument {
   createdAt                DateTime           @default(now()) @map("created_at")
 
   // Relații
-  fisiere Fisier[]
+  fisiere      Fisier[]
+  tipuriDocument TipDocument[] // Noua relație inversă
 
   @@map("categorii_documente")
 }

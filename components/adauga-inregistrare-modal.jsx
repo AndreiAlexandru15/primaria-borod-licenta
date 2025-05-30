@@ -1,47 +1,15 @@
-/**
- * Modal pentru adăugarea de înregistrări în registratură
- * @fileoverview Modal cu formular pentru crearea de înregistrări cu un singur fișier atașat
- * Departamentul și registrul sunt preluate automat din props și trimise către API
- */
+'use client'
 
-"use client"
-
-import { useState, useCallback, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
-import { 
-  Plus, 
-  FileText, 
-  User, 
-  Upload,
-  File,
-  Trash2,
-  Paperclip,
-  Calendar
-} from "lucide-react"
-import { crudNotifications, notifyError } from "@/lib/notifications"
-import axios from "axios"
+import { useState, useRef } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import axios from 'axios'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Upload, X, FileText, Loader2 } from 'lucide-react'
+import { notifySuccess, notifyError } from '@/lib/notifications'
 
 export function AdaugaInregistrareModal({ 
   departamentId = null, 
@@ -51,11 +19,11 @@ export function AdaugaInregistrareModal({
   const [isOpen, setIsOpen] = useState(false)
   const [formData, setFormData] = useState({
     expeditor: '',
-    destinatarId: '', // store user ID
+    destinatarId: 'placeholder',
     obiect: '',
     observatii: '',
     dataDocument: new Date().toISOString().split('T')[0],
-    tipDocumentId: '',
+    tipDocumentId: 'placeholder',
     fisierAtas: null,
     numarDocument: '',
   })
@@ -66,7 +34,16 @@ export function AdaugaInregistrareModal({
   const fileInputRef = useRef(null)
   const queryClient = useQueryClient()
   
-  // Query pentru tipurile de documente ale registrului
+  // Query pentru categorii fișiere (pentru fallback dacă tipul de document nu are categorie)
+  const { data: categorii = [] } = useQuery({
+    queryKey: ['categorii-document'],
+    queryFn: async () => {
+      const response = await axios.get('/api/categorii-document')
+      return response.data.success ? response.data.data : []
+    }
+  })
+  
+  // Query pentru tipurile de documente ale registrului (cu categorii incluse)
   const { data: tipuriDocumente = [] } = useQuery({
     queryKey: ['tipuri-documente', registruId],
     queryFn: async () => {
@@ -78,13 +55,12 @@ export function AdaugaInregistrareModal({
   })
   
   // Fetch users for the department
-  const { data: utilizatori = [], isLoading: utilizatoriLoading, error: utilizatoriError } = useQuery({
+  const { data: utilizatori = [], isLoading: utilizatoriLoading } = useQuery({
     queryKey: ['utilizatori', departamentId],
     queryFn: async () => {
       if (!departamentId) return [];
       const response = await axios.get('/api/utilizatori');
       if (!response.data.success) throw new Error('Nu s-au putut încărca utilizatorii');
-      // Returnează toți utilizatorii, fără filtrare după departament
       return response.data.data;
     },
     enabled: isOpen && !!departamentId
@@ -94,19 +70,24 @@ export function AdaugaInregistrareModal({
   const uploadFileMutation = useMutation({
     mutationFn: async (fileToUpload) => {
       setIsUploading(true)
+      setUploadProgress(0)
       
       const formDataUpload = new FormData()
       formDataUpload.append('file', fileToUpload)
       
-      // Adaugă departamentId și registruId pentru organizarea fișierelor
+      // Adaugă departamentId pentru organizarea fișierelor
       if (departamentId) {
         formDataUpload.append('departamentId', departamentId)
       }
-      if (registruId) {
-        formDataUpload.append('registruId', registruId)
-      }
       
-      setUploadProgress(0)
+      // Folosește categoria din tipul de document selectat
+      const tipDocumentSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
+      if (tipDocumentSelectat?.categorieId) {
+        formDataUpload.append('categorieId', tipDocumentSelectat.categorieId)
+      } else if (categorii.length > 0) {
+        // Fallback la prima categorie dacă tipul de document nu are categorie
+        formDataUpload.append('categorieId', categorii[0].id)
+      }
 
       try {
         const response = await axios.post('/api/fisiere', formDataUpload, {
@@ -114,10 +95,12 @@ export function AdaugaInregistrareModal({
             'Content-Type': 'multipart/form-data',
           },
           onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            )
-            setUploadProgress(percentCompleted)
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              )
+              setUploadProgress(percentCompleted)
+            }
           }
         })
 
@@ -126,95 +109,120 @@ export function AdaugaInregistrareModal({
             id: response.data.data.id,
             numeOriginal: response.data.data.numeOriginal,
             marime: response.data.data.marime,
-            tipMime: response.data.data.tipMime
+            tipMime: response.data.data.tipMime,
+            extensie: response.data.data.extensie,
+            categorie: response.data.data.categorie
           }
         } else {
           throw new Error(response.data.error || 'Eroare la încărcarea fișierului')
         }
       } catch (error) {
-        throw new Error(error.response?.data?.error || 'Eroare la încărcarea fișierului')
+        console.error('Upload error:', error)
+        throw new Error(error.response?.data?.error || error.message || 'Eroare la încărcarea fișierului')
       } finally {
         setIsUploading(false)
       }
     },
     onSuccess: (uploadedFile) => {
+      console.log('Upload success:', uploadedFile)
       setFile(uploadedFile)
       setFormData(prev => ({
         ...prev,
         fisierAtas: uploadedFile.id
       }))
+      setUploadProgress(100)
     },
     onError: (error) => {
+      console.error('Upload mutation error:', error)
       notifyError(error.message)
       setUploadProgress(0)
+      setIsUploading(false)
     }
   })
 
   // Mutation pentru ștergere fișier
   const deleteFileMutation = useMutation({
     mutationFn: async (fileId) => {
-      await axios.delete(`/api/fisiere/${fileId}`)
+      const response = await axios.delete(`/api/fisiere?id=${fileId}`)
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la ștergerea fișierului')
+      }
+      return response.data
+    },
+    onSuccess: () => {
+      console.log('File deleted successfully')
     },
     onError: (error) => {
-      notifyError('Eroare la ștergerea fișierului')
+      console.error('Delete file error:', error)
+      notifyError(error.message || 'Eroare la ștergerea fișierului')
     }
   })
   
   // Mutation pentru creare înregistrare
   const createMutation = useMutation({
     mutationFn: async (data) => {
-      const payload = {
+      // Curăță datele de valorile placeholder
+      const cleanData = {
         ...data,
+        tipDocumentId: data.tipDocumentId === 'placeholder' ? null : data.tipDocumentId,
+        destinatarId: data.destinatarId === 'placeholder' ? null : data.destinatarId,
+      }
+      
+      const payload = {
+        ...cleanData,
         registruId,
         departamentId,
-        fisiereIds: data.fisierAtas ? [data.fisierAtas] : []
+        fisiereIds: cleanData.fisierAtas ? [cleanData.fisierAtas] : []
       }
       delete payload.fisierAtas
-      // Remove destinatar if present, only send destinatarId
-      if (payload.destinatar) delete payload.destinatar
+      
+      console.log('Creating registration with payload:', payload)
       
       const response = await axios.post('/api/inregistrari', payload)
       if (!response.data.success) {
         throw new Error(response.data.error || 'Eroare la crearea înregistrării')
       }
-      return response.data.data
+      return response.data
     },
     onSuccess: (data) => {
+      console.log('Registration created successfully:', data)
+      notifySuccess('Înregistrarea a fost creată cu succes!')
+      
+      // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['inregistrari'] })
-      if (registruId) {
-        queryClient.invalidateQueries({ queryKey: ['registru', registruId] })
-      }
-      if (departamentId) {
-        queryClient.invalidateQueries({ queryKey: ['departament', departamentId] })
-      }
-      crudNotifications.created('înregistrarea', data.numarInregistrare)
-      setIsOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['fisiere'] })
+      
       resetForm()
+      setIsOpen(false)
     },
     onError: (error) => {
-      notifyError(error.message)
+      console.error('Create registration error:', error)
+      notifyError(error.message || 'Nu s-a putut crea înregistrarea')
     }
   })
 
   const resetForm = () => {
     setFormData({
       expeditor: '',
-      destinatarId: '',
+      destinatarId: 'placeholder',
       obiect: '',
       observatii: '',
       dataDocument: new Date().toISOString().split('T')[0],
-      tipDocumentId: '',
+      tipDocumentId: 'placeholder',
       fisierAtas: null,
       numarDocument: '',
     })
     setFile(null)
     setUploadProgress(0)
     setIsUploading(false)
+    setIsDragOver(false)
   }
-  
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!formData.tipDocumentId) {
+    
+    // Validări
+    if (!formData.tipDocumentId || formData.tipDocumentId === 'placeholder') {
       notifyError('Tipul de document este obligatoriu')
       return
     }
@@ -226,7 +234,7 @@ export function AdaugaInregistrareModal({
       notifyError('Departamentul și registrul sunt obligatorii pentru a crea înregistrarea')
       return
     }
-    if (!formData.destinatarId) {
+    if (!formData.destinatarId || formData.destinatarId === 'placeholder') {
       notifyError('Destinatarul este obligatoriu')
       return
     }
@@ -234,359 +242,364 @@ export function AdaugaInregistrareModal({
       notifyError('Fișierul atașat este obligatoriu')
       return
     }
-    // Trimit datele cu departamentId și registruId incluse automat
+    
+    console.log('Submitting form with data:', formData)
     createMutation.mutate(formData)
   }
 
-  // Funcții pentru drag & drop
-  const handleDragOver = useCallback((e) => {
-    e.preventDefault()
-    setIsDragOver(true)
-  }, [])
+  const handleFileSelect = (selectedFile) => {
+    if (!selectedFile) return
+    
+    // Validare mărime fișier (max 10MB)
+    const maxSize = 10 * 1024 * 1024
+    if (selectedFile.size > maxSize) {
+      notifyError('Fișierul este prea mare (max 10MB)')
+      return
+    }
+    
+    // Validare tip fișier
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'text/plain'
+    ]
+    
+    if (!allowedTypes.includes(selectedFile.type)) {
+      notifyError('Tip de fișier neacceptat')
+      return
+    }
 
-  const handleDragLeave = useCallback((e) => {
-    e.preventDefault()
-    setIsDragOver(false)
-  }, [])
+    // Verifică dacă tipul de document este selectat
+    if (!formData.tipDocumentId || formData.tipDocumentId === 'placeholder') {
+      notifyError('Selectează mai întâi tipul de document')
+      return
+    }
+    
+    uploadFileMutation.mutate(selectedFile)
+  }
 
-  const handleDrop = useCallback((e) => {
+  const handleDrop = (e) => {
     e.preventDefault()
     setIsDragOver(false)
     
-    const droppedFiles = Array.from(e.dataTransfer.files)
-    if (droppedFiles.length > 0) {
-      // Folosim doar primul fișier
-      uploadFileMutation.mutate(droppedFiles[0])
-    }
-  }, [uploadFileMutation])
-
-  const handleFileSelect = (e) => {
-    const selectedFiles = Array.from(e.target.files)
-    if (selectedFiles.length > 0) {
-      // Folosim doar primul fișier
-      uploadFileMutation.mutate(selectedFiles[0])
+    const droppedFile = e.dataTransfer.files[0]
+    if (droppedFile) {
+      handleFileSelect(droppedFile)
     }
   }
 
-  const removeFile = () => {
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }
+
+  const handleRemoveFile = () => {
     if (file?.id) {
       deleteFileMutation.mutate(file.id)
     }
     setFile(null)
-    setFormData(prev => ({
-      ...prev,
-      fisierAtas: null
-    }))
+    setFormData(prev => ({ ...prev, fisierAtas: null }))
     setUploadProgress(0)
   }
 
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes'
-    const k = 1024
-    const sizes = ['Bytes', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  // Obține categoria pentru tipul de document selectat
+  const getCategorieForTipDocument = (tipDocumentId) => {
+    if (!tipDocumentId || tipDocumentId === 'placeholder') return null
+    const tipDocument = tipuriDocumente.find(tip => tip.id === tipDocumentId)
+    return tipDocument?.categorie || null
   }
 
-  // Setează destinatarId la responsabilul departamentului dacă există
-  useEffect(() => {
-    if (isOpen && utilizatori.length > 0 && departamentId) {
-      axios.get(`/api/departamente`).then(res => {
-        if (res.data.success) {
-          const dep = res.data.data.find(d => d.id === departamentId);
-          let responsabilId = dep?.responsabil?.id || null;
-          let destinatarValid = utilizatori.some(u => u.id === formData.destinatarId);
-          // Dacă destinatarId nu e valid sau e gol, setează responsabilul dacă există în listă, altfel primul utilizator
-          if (!destinatarValid) {
-            let newDestinatarId = (responsabilId && utilizatori.some(u => u.id === responsabilId))
-              ? responsabilId
-              : utilizatori[0].id;
-            setFormData(prev => ({ ...prev, destinatarId: newDestinatarId }));
-          }
-        }
-      });
-    }
-    if (!isOpen && formData.destinatarId !== '') {
-      setFormData(prev => ({ ...prev, destinatarId: '' }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, utilizatori, departamentId])
+  // Verifică dacă tipul de document este valid
+  const isTipDocumentValid = formData.tipDocumentId && formData.tipDocumentId !== 'placeholder'
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open)
-      if (!open) resetForm()
-    }}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
           <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Adaugă Înregistrare
+            <Upload className="w-4 h-4 mr-2" />
+            Adaugă înregistrare
           </Button>
         )}
       </DialogTrigger>
+      
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Înregistrare Nouă
-          </DialogTitle>
-          <DialogDescription>
-            Completează datele pentru noua înregistrare în registratură
-          </DialogDescription>
+          <DialogTitle>Adaugă înregistrare nouă</DialogTitle>
         </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Tipul de document */}
+          <div className="space-y-2">
+            <Label htmlFor="tipDocumentId">
+              Tipul de document <span className="text-red-500">*</span>
+            </Label>
+            <select
+              id="tipDocumentId"
+              value={formData.tipDocumentId}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                tipDocumentId: e.target.value
+              }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            >
+              <option value="placeholder" disabled>Selectează tipul de document</option>
+              {tipuriDocumente.map(tip => (
+                <option key={tip.id} value={tip.id}>
+                  {tip.nume} {tip.categorie && `(${tip.categorie.nume})`}
+                </option>
+              ))}
+            </select>
+            
+            {/* Afișează informații despre categoria selectată */}
+            {isTipDocumentValid && (() => {
+              const categorie = getCategorieForTipDocument(formData.tipDocumentId)
+              return categorie && (
+                <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded border">
+                  <div className="font-medium text-blue-800">
+                    📁 Categoria: {categorie.nume}
+                  </div>
+                  {categorie.descriere && (
+                    <div className="mt-1">
+                      <span className="font-medium">Descriere:</span> {categorie.descriere}
+                    </div>
+                  )}
+                  {categorie.perioadaRetentie && (
+                    <div className="mt-1">
+                      <span className="font-medium">Perioada retenție:</span> {categorie.perioadaRetentie} ani
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+
           {/* Expeditor */}
           <div className="space-y-2">
-            <Label htmlFor="expeditor" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Expeditor
+            <Label htmlFor="expeditor">
+              Expeditor <span className="text-red-500">*</span>
             </Label>
             <Input
               id="expeditor"
               value={formData.expeditor}
-              onChange={(e) => setFormData(prev => ({ ...prev, expeditor: e.target.value }))}
-              placeholder="Nume expeditor sau instituție"
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                expeditor: e.target.value
+              }))}
+              placeholder="Numele expeditorului"
+              required
             />
           </div>
 
-          {/* Destinatar (dropdown) */}
+          {/* Destinatar */}
           <div className="space-y-2">
-            <Label htmlFor="destinatarId" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Destinatar *
+            <Label htmlFor="destinatarId">
+              Destinatar <span className="text-red-500">*</span>
             </Label>
-            <Select
-              value={formData.destinatarId && utilizatori.some(u => u.id?.toString() === formData.destinatarId?.toString()) ? formData.destinatarId.toString() : undefined}
-              onValueChange={val => setFormData(prev => ({ ...prev, destinatarId: val }))}
+            <select
+              id="destinatarId"
+              value={formData.destinatarId}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                destinatarId: e.target.value
+              }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
-              name="destinatarId"
-              disabled={utilizatoriLoading || utilizatori.length === 0}
             >
-              <SelectTrigger id="destinatarId">
-                <SelectValue placeholder={utilizatoriLoading ? 'Se încarcă utilizatorii...' : 'Selectează destinatarul'} />
-              </SelectTrigger>
-              <SelectContent>
-                {utilizatori.length > 0 && utilizatori
-                  .filter(u => u.id !== undefined && u.id !== null && u.id.toString() !== "")
-                  .map(u => (
-                    <SelectItem key={u.id} value={u.id.toString()}>
-                      {u.nume} {u.prenume} - {u.functie || 'Fără funcție'}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {utilizatori.length === 0 && !utilizatoriLoading && (
-              <p className="text-xs text-gray-500">Niciun utilizator disponibil în acest departament.</p>
-            )}
+              <option value="placeholder" disabled>Selectează destinatarul</option>
+              {utilizatori.map(utilizator => (
+                <option key={utilizator.id} value={utilizator.id}>
+                  {utilizator.nume} {utilizator.prenume} ({utilizator.functie})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Obiect */}
           <div className="space-y-2">
-            <Label htmlFor="obiect" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Obiect *
+            <Label htmlFor="obiect">
+              Obiect <span className="text-red-500">*</span>
             </Label>
-            <Textarea
+            <Input
               id="obiect"
               value={formData.obiect}
-              onChange={(e) => setFormData(prev => ({ ...prev, obiect: e.target.value }))}
-              placeholder="Descrierea obiectului documentului"
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                obiect: e.target.value
+              }))}
+              placeholder="Obiectul documentului"
               required
-              rows={3}
             />
           </div>
 
-          {/* Observații */}
+          {/* Numărul documentului */}
           <div className="space-y-2">
-            <Label htmlFor="observatii" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Observații
-            </Label>
-            <Textarea
-              id="observatii"
-              value={formData.observatii}
-              onChange={(e) => setFormData(prev => ({ ...prev, observatii: e.target.value }))}
-              placeholder="Observații suplimentare"
-              rows={2}
+            <Label htmlFor="numarDocument">Numărul documentului</Label>
+            <Input
+              id="numarDocument"
+              value={formData.numarDocument}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                numarDocument: e.target.value
+              }))}
+              placeholder="Numărul documentului (opțional)"
             />
           </div>
 
-          {/* Data Document */}
+          {/* Data documentului */}
           <div className="space-y-2">
-            <Label htmlFor="dataDocument" className="flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Data Document
+            <Label htmlFor="dataDocument">
+              Data documentului <span className="text-red-500">*</span>
             </Label>
             <Input
               id="dataDocument"
               type="date"
               value={formData.dataDocument}
-              onChange={(e) => setFormData(prev => ({ ...prev, dataDocument: e.target.value }))}
-            />
-          </div>
-
-          {/* Tip Document */}
-          <div className="space-y-2">
-            <Label htmlFor="tipDocumentId" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Tip document *
-            </Label>
-            <Select
-              value={formData.tipDocumentId}
-              onValueChange={val => setFormData(prev => ({ ...prev, tipDocumentId: val }))}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                dataDocument: e.target.value
+              }))}
               required
-              name="tipDocumentId"
-            >
-              <SelectTrigger id="tipDocumentId">
-                <SelectValue placeholder="Selectează tipul documentului" />
-              </SelectTrigger>
-              <SelectContent>
-                {tipuriDocumente.length === 0 ? (
-                  <SelectItem value="" disabled>
-                    Niciun tip disponibil
-                  </SelectItem>
-                ) : (
-                  tipuriDocumente.map(tip => (
-                    <SelectItem key={tip.id} value={tip.id}>
-                      {tip.nume}
-                    </SelectItem>
-                  ))
-               ) }
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Număr Document */}
-          <div className="space-y-2">
-            <Label htmlFor="numarDocument" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Număr Document
-            </Label>
-            <Input
-              id="numarDocument"
-              value={formData.numarDocument}
-              onChange={(e) => setFormData(prev => ({ ...prev, numarDocument: e.target.value }))}
-              placeholder="Număr document (opțional)"
             />
           </div>
 
-          {/* Upload Zone */}
-          <div className="space-y-4">            <Label className="flex items-center gap-2">
-              <Paperclip className="h-4 w-4" />
-              Fișier Atașat *
+          {/* Upload fișier */}
+          <div className="space-y-2">
+            <Label>
+              Fișier atașat <span className="text-red-500">*</span>
             </Label>
             
-            {!file ? (              <Card
-                className={`border-2 border-dashed transition-colors ${
-                  isDragOver 
-                    ? 'border-primary bg-primary/5' 
-                    : 'border-gray-300 hover:border-gray-400'
-                } ${!formData.fisierAtas ? 'border-red-200 bg-red-50/50' : ''}`}
+            {!file ? (
+              <div
+                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
+                  ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
+                  ${!isTipDocumentValid ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
+                onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
+                onClick={() => isTipDocumentValid && fileInputRef.current?.click()}
               >
-                <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                  <Upload className="h-8 w-8 text-gray-400 mb-4" />
-                  <p className="text-sm text-gray-600 mb-2">
-                    Trage fișierul aici sau{' '}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-primary underline hover:no-underline"
-                    >
-                      navighează pentru a selecta
-                    </button>
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Orice tip de fișier (fără limită de mărime)
-                  </p>
-                  <p className="text-xs text-red-500 mt-1 font-medium">
-                    * Câmp obligatoriu
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {/* Progress bar pentru upload */}
-            {isUploading && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="truncate">Se încarcă fișierul...</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <Progress value={uploadProgress} className="h-2" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e.target.files?.[0])}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.txt"
+                />
+                
+                {isUploading ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mb-2" />
+                    <p className="text-sm text-gray-600">
+                      Se încarcă fișierul... {uploadProgress}%
+                    </p>
+                    <div className="w-48 bg-gray-200 rounded-full h-2 mt-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <Upload className="w-12 h-12 text-gray-400 mb-4" />
+                    <p className="text-sm text-gray-600 mb-2">
+                      {isTipDocumentValid 
+                        ? 'Glisează fișierul aici sau fă click pentru a selecta'
+                        : 'Selectează mai întâi tipul de document'
+                      }
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, TXT (max 10MB)
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* Fișierul încărcat */}
-            {file && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Fișier atașat:</Label>
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <File className="h-4 w-4 text-gray-500" />
+            ) : (
+              <div className="border rounded-lg p-4 bg-green-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <FileText className="w-8 h-8 text-green-600" />
                     <div>
-                      <p className="text-sm font-medium">{file.numeOriginal}</p>
-                      <p className="text-xs text-gray-500">
-                        {formatFileSize(file.marime)} • {file.tipMime}
+                      <p className="font-medium text-green-800">{file.numeOriginal}</p>
+                      <p className="text-sm text-green-600">
+                        {(file.marime / 1024 / 1024).toFixed(2)} MB
+                        {file.categorie && ` • ${file.categorie.nume}`}
                       </p>
                     </div>
                   </div>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={removeFile}
-                    className="text-red-500 hover:text-red-700"
-                    disabled={isUploading}
+                    onClick={handleRemoveFile}
+                    className="text-red-600 hover:text-red-700"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <X className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
             )}
           </div>
 
-          <DialogFooter>
+          {/* Observații */}
+          <div className="space-y-2">
+            <Label htmlFor="observatii">Observații</Label>
+            <Textarea
+              id="observatii"
+              value={formData.observatii}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                observatii: e.target.value
+              }))}
+              placeholder="Observații suplimentare (opțional)"
+              rows={3}
+            />
+          </div>
+
+          {/* Butoane */}
+          <div className="flex gap-3 pt-4">
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsOpen(false)}
-            >
-              Anulează
-            </Button>            <Button
               type="submit"
-              disabled={createMutation.isPending || isUploading || !formData.fisierAtas}
+              disabled={createMutation.isPending || isUploading}
+              className="flex-1"
             >
               {createMutation.isPending ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Se salvează...
-                </>
-              ) : isUploading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Se încarcă fișierul...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Se creează...
                 </>
               ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Creează Înregistrarea
-                </>
+                'Creează înregistrarea'
               )}
             </Button>
-          </DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                resetForm()
+                setIsOpen(false)
+              }}
+              disabled={createMutation.isPending || isUploading}
+            >
+              Anulează
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
   )
 }
-

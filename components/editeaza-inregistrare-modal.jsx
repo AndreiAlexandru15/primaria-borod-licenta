@@ -170,9 +170,9 @@ export function EditeazaInregistrareModal({
         throw new Error(response.data.error || 'Eroare la editarea înregistrării')
       }
       return response.data.data
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries(['inregistrari'])
+    },    onSuccess: (data) => {
+      // Invalidate exact query key used by lista component (robust, ca la departamente)
+      queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registruId], exact: false })
       crudNotifications.edit('Înregistrarea', data.numarInregistrare)
       onOpenChange(false)
       resetForm()
