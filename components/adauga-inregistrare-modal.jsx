@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import axios from 'axios'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -48,7 +48,9 @@ export function AdaugaInregistrareModal({
     queryKey: ['tipuri-documente', registruId],
     queryFn: async () => {
       if (!registruId) return []
+      console.log('Fetching tipuri documente pentru registruId:', registruId)
       const response = await axios.get(`/api/tipuri-documente?registruId=${registruId}`)
+      console.log('Response tipuri documente:', response.data)
       return response.data.success ? response.data.data : []
     },
     enabled: !!registruId
@@ -65,6 +67,23 @@ export function AdaugaInregistrareModal({
     },
     enabled: isOpen && !!departamentId
   })
+
+  // Debug effect pentru a vedea datele
+  useEffect(() => {
+    console.log('=== DEBUG INFO ===')
+    console.log('FormData:', formData)
+    console.log('Tipuri documente:', tipuriDocumente)
+    console.log('Categorii:', categorii)
+    console.log('Tip document selectat:', formData.tipDocumentId)
+    
+    if (formData.tipDocumentId && formData.tipDocumentId !== 'placeholder') {
+      const tipSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
+      console.log('Tip selectat găsit:', tipSelectat)
+      console.log('Categoria tipului selectat:', tipSelectat?.categorie)
+      console.log('CategorieId din tip:', tipSelectat?.categorieId)
+    }
+    console.log('==================')
+  }, [formData.tipDocumentId, tipuriDocumente, categorii, formData])
   
   // Mutation pentru upload fișier
   const uploadFileMutation = useMutation({
@@ -80,14 +99,32 @@ export function AdaugaInregistrareModal({
         formDataUpload.append('departamentId', departamentId)
       }
       
-      // Folosește categoria din tipul de document selectat
+      // PROBLEMA ERA AICI - Folosește categoria din tipul de document selectat
+      console.log('=== UPLOAD DEBUG ===')
+      console.log('Tip document selectat pentru upload:', formData.tipDocumentId)
+      console.log('Tipuri documente disponibile:', tipuriDocumente)
+      
       const tipDocumentSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
+      console.log('Tip document găsit pentru upload:', tipDocumentSelectat)
+      
       if (tipDocumentSelectat?.categorieId) {
+        console.log('Folosind categorieId din tip document:', tipDocumentSelectat.categorieId)
         formDataUpload.append('categorieId', tipDocumentSelectat.categorieId)
-      } else if (categorii.length > 0) {
+      } else if (tipDocumentSelectat?.categorie?.id) {
+        // Poate categoria este nested în obiectul categorie
+        console.log('Folosind categoria nested:', tipDocumentSelectat.categorie.id)
+        formDataUpload.append('categorieId', tipDocumentSelectat.categorie.id)
+      } else {
+        console.log('Nu s-a găsit categoria pentru tipul de document, folosind fallback')
         // Fallback la prima categorie dacă tipul de document nu are categorie
-        formDataUpload.append('categorieId', categorii[0].id)
+        if (categorii.length > 0) {
+          console.log('Folosind prima categorie ca fallback:', categorii[0].id)
+          formDataUpload.append('categorieId', categorii[0].id)
+        } else {
+          console.warn('Nu există categorii disponibile!')
+        }
       }
+      console.log('===================')
 
       try {
         const response = await axios.post('/api/fisiere', formDataUpload, {
@@ -313,11 +350,32 @@ export function AdaugaInregistrareModal({
     setUploadProgress(0)
   }
 
-  // Obține categoria pentru tipul de document selectat
+  // Obține categoria pentru tipul de document selectat - cu debug îmbunătățit
   const getCategorieForTipDocument = (tipDocumentId) => {
-    if (!tipDocumentId || tipDocumentId === 'placeholder') return null
+    if (!tipDocumentId || tipDocumentId === 'placeholder') {
+      console.log('TipDocumentId invalid:', tipDocumentId)
+      return null
+    }
+    
+    console.log('Căutând categoria pentru tipDocumentId:', tipDocumentId)
+    console.log('Tipuri documente disponibile:', tipuriDocumente)
+    
     const tipDocument = tipuriDocumente.find(tip => tip.id === tipDocumentId)
-    return tipDocument?.categorie || null
+    console.log('Tip document găsit:', tipDocument)
+    
+    if (tipDocument?.categorie) {
+      console.log('Categoria găsită:', tipDocument.categorie)
+      return tipDocument.categorie
+    } else if (tipDocument?.categorieId) {
+      console.log('TipDocument are categorieId dar nu obiectul categorie:', tipDocument.categorieId)
+      // Încearcă să găsești categoria în lista de categorii
+      const categorieGasita = categorii.find(cat => cat.id === tipDocument.categorieId)
+      console.log('Categoria găsită în lista de categorii:', categorieGasita)
+      return categorieGasita || null
+    }
+    
+    console.log('Nu s-a găsit categoria pentru tipul de document')
+    return null
   }
 
   // Verifică dacă tipul de document este valid
@@ -348,10 +406,13 @@ export function AdaugaInregistrareModal({
             <select
               id="tipDocumentId"
               value={formData.tipDocumentId}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                tipDocumentId: e.target.value
-              }))}
+              onChange={(e) => {
+                console.log('Tip document selectat:', e.target.value)
+                setFormData(prev => ({
+                  ...prev,
+                  tipDocumentId: e.target.value
+                }))
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >

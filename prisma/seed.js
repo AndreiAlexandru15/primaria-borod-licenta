@@ -93,8 +93,8 @@ async function main() {
     await prisma.auditLog.deleteMany()
     await prisma.inregistrare.deleteMany()
     await prisma.fisier.deleteMany()
-    await prisma.categorieDocument.deleteMany()
     await prisma.tipDocument.deleteMany()
+    await prisma.categorieDocument.deleteMany()
     await prisma.registru.deleteMany()
     await prisma.departament.deleteMany()
     await prisma.utilizator.deleteMany()
@@ -102,7 +102,6 @@ async function main() {
     await prisma.rolPermisiune.deleteMany()
     await prisma.permisiune.deleteMany()
     await prisma.rol.deleteMany()
-    await prisma.categorieDocument.deleteMany()
     await prisma.confidentialitateDocument.deleteMany()
 
     console.log('🗑️  Date existente șterse')
@@ -314,46 +313,79 @@ async function main() {
 
     console.log('🔗 Roluri atribuite utilizatorilor')
 
-    // 9. Creează categoriile de documente cu confidentialitate corectă
-    const CATEGORII_DOCUMENTE_INITIALE = [
+    // 9. Creează categoriile de documente PRIMUL
+    const categoriiDocumente = [
       {
-        nume: 'Hotărâri Consiliu Local',
-        cod: 'HCL',
-        descriere: 'Hotărâri ale Consiliului Local',
+        id: 'cat-hotarari-dispozitii',
+        nume: 'Hotărâri și Dispoziții',
+        cod: 'HOT-DISP',
+        descriere: 'Hotărâri ale Consiliului Local și Dispoziții ale Primarului',
         perioadaRetentie: 50,
+        active: true,
         confidentialitateDefaultId: confidentialitateDocs['public'].id
       },
       {
-        nume: 'Dispoziții Primar',
-        cod: 'DP',
-        descriere: 'Dispoziții ale Primarului',
-        perioadaRetentie: 25,
-        confidentialitateDefaultId: confidentialitateDocs['public'].id
-      },
-      {
-        nume: 'Contracte',
-        cod: 'CONTR',
-        descriere: 'Contracte și convenții',
+        id: 'cat-contracte-conventii',
+        nume: 'Contracte și Convenții',
+        cod: 'CONTR-CONV',
+        descriere: 'Contracte de achiziții, prestări servicii și convenții',
         perioadaRetentie: 10,
+        active: true,
         confidentialitateDefaultId: confidentialitateDocs['confidential'].id
       },
       {
-        nume: 'Corespondență',
-        cod: 'COR',
-        descriere: 'Corespondență oficială',
+        id: 'cat-corespondenta-cetateni',
+        nume: 'Corespondența cu cetățenii',
+        cod: 'COR-CET',
+        descriere: 'Documente de corespondență cu cetățenii - cereri, sesizări, plângeri',
         perioadaRetentie: 5,
+        active: true,
         confidentialitateDefaultId: confidentialitateDocs['public'].id
       },
       {
-        nume: 'Procese Verbale',
-        cod: 'PV',
-        descriere: 'Procese verbale diverse',
+        id: 'cat-corespondenta-institutii',
+        nume: 'Corespondența cu alte instituții',
+        cod: 'COR-INST',
+        descriere: 'Corespondența oficială cu alte instituții publice',
         perioadaRetentie: 10,
+        active: true,
+        confidentialitateDefaultId: confidentialitateDocs['public'].id
+      },
+      {
+        id: 'cat-financiar-contabile',
+        nume: 'Documente financiar-contabile',
+        cod: 'FIN-CONT',
+        descriere: 'Facturi, chitanțe, ordine de plată, situații financiare',
+        perioadaRetentie: 10,
+        active: true,
+        confidentialitateDefaultId: confidentialitateDocs['confidential'].id
+      },
+      {
+        id: 'cat-procese-verbale',
+        nume: 'Procese verbale',
+        cod: 'PV',
+        descriere: 'Procese verbale diverse - ședințe, constatări, recepții',
+        perioadaRetentie: 10,
+        active: true,
+        confidentialitateDefaultId: confidentialitateDocs['public'].id
+      },
+      {
+        id: 'cat-arhiva-evidente',
+        nume: 'Arhivă și Evidențe speciale',
+        cod: 'ARHIVA',
+        descriere: 'Documente pentru arhivare și evidențe speciale',
+        perioadaRetentie: 100,
+        active: true,
         confidentialitateDefaultId: confidentialitateDocs['public'].id
       }
     ];
-    for (const categorie of CATEGORII_DOCUMENTE_INITIALE) {
-      await prisma.categorieDocument.create({ data: categorie });
+
+    const categoriiCreate = {};
+    for (const categorie of categoriiDocumente) {
+      const categorieCreata = await prisma.categorieDocument.create({
+        data: categorie
+      });
+      categoriiCreate[categorie.id] = categorieCreata;
     }
     console.log('📁 Categorii documente create')
 
@@ -430,7 +462,7 @@ async function main() {
 
     console.log('📋 Registre create')
 
-    // 12. Creează tipurile de documente specifice pentru fiecare registru
+    // 12. Creează tipurile de documente CU CATEGORII ASOCIATE
 
     // Tipuri documente pentru Decizie Primar
     await prisma.tipDocument.create({
@@ -438,7 +470,8 @@ async function main() {
         nume: 'Dispoziție Primar',
         descriere: 'Dispoziții emise de primar',
         cod: 'DISP',
-        registruId: registruDeciziePrimar.id
+        registruId: registruDeciziePrimar.id,
+        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id // ✅ Asociază categoria
       }
     })
 
@@ -447,7 +480,8 @@ async function main() {
         nume: 'Ordin Primar',
         descriere: 'Ordine emise de primar',
         cod: 'ORD',
-        registruId: registruDeciziePrimar.id
+        registruId: registruDeciziePrimar.id,
+        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id // ✅ Asociază categoria
       }
     })
 
@@ -457,7 +491,8 @@ async function main() {
         nume: 'Hotărâre Consiliu Local',
         descriere: 'Hotărâri ale consiliului local',
         cod: 'HCL',
-        registruId: registruHotarariCL.id
+        registruId: registruHotarariCL.id,
+        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id // ✅ Asociază categoria
       }
     })
 
@@ -466,7 +501,8 @@ async function main() {
         nume: 'Proces Verbal Ședință',
         descriere: 'Procese verbale ale ședințelor consiliului',
         cod: 'PVS',
-        registruId: registruHotarariCL.id
+        registruId: registruHotarariCL.id,
+        categorieId: categoriiCreate['cat-procese-verbale'].id // ✅ Asociază categoria
       }
     })
 
@@ -476,7 +512,8 @@ async function main() {
         nume: 'Factură',
         descriere: 'Facturi și documente de plată',
         cod: 'FACT',
-        registruId: registruContabilitate.id
+        registruId: registruContabilitate.id,
+        categorieId: categoriiCreate['cat-financiar-contabile'].id // ✅ Asociază categoria
       }
     })
 
@@ -485,7 +522,8 @@ async function main() {
         nume: 'Contract',
         descriere: 'Contracte și convenții',
         cod: 'CONTR',
-        registruId: registruContabilitate.id
+        registruId: registruContabilitate.id,
+        categorieId: categoriiCreate['cat-contracte-conventii'].id // ✅ Asociază categoria
       }
     })
 
@@ -494,7 +532,8 @@ async function main() {
         nume: 'Raport Financiar',
         descriere: 'Rapoarte și situații financiare',
         cod: 'RAF',
-        registruId: registruContabilitate.id
+        registruId: registruContabilitate.id,
+        categorieId: categoriiCreate['cat-financiar-contabile'].id // ✅ Asociază categoria
       }
     })
 
@@ -504,7 +543,8 @@ async function main() {
         nume: 'Sesizare',
         descriere: 'Sesizări din partea cetățenilor',
         cod: 'SES',
-        registruId: registruCorespondentaCetateni.id
+        registruId: registruCorespondentaCetateni.id,
+        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
       }
     })
 
@@ -513,7 +553,8 @@ async function main() {
         nume: 'Cerere',
         descriere: 'Cereri din partea cetățenilor',
         cod: 'CER',
-        registruId: registruCorespondentaCetateni.id
+        registruId: registruCorespondentaCetateni.id,
+        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
       }
     })
 
@@ -522,7 +563,8 @@ async function main() {
         nume: 'Plângere',
         descriere: 'Plângeri din partea cetățenilor',
         cod: 'PLA',
-        registruId: registruCorespondentaCetateni.id
+        registruId: registruCorespondentaCetateni.id,
+        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
       }
     })
 
@@ -531,7 +573,8 @@ async function main() {
         nume: 'Comunicat',
         descriere: 'Comunicate către cetățeni',
         cod: 'COM',
-        registruId: registruCorespondentaCetateni.id
+        registruId: registruCorespondentaCetateni.id,
+        categorieId: categoriiCreate['cat-corespondenta-institutii'].id // ✅ Asociază categoria
       }
     })
 
@@ -540,126 +583,12 @@ async function main() {
         nume: 'Răspuns',
         descriere: 'Răspunsuri la solicitările cetățenilor',
         cod: 'RASP',
-        registruId: registruCorespondentaCetateni.id
+        registruId: registruCorespondentaCetateni.id,
+        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
       }
     })
 
-    console.log('📝 Tipuri documente create')
-
-   const categoriiFisiere = [
-  {
-    nume: 'Corespondența cu cetățenii',
-    cod: 'COR-CET',
-    descriere: 'Documente de corespondență cu cetățenii - cereri, sesizări, plângeri',
-    perioadaRetentie: 5,
-    active: true,  // ✅ Schimbat din 'activa' în 'active'
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Corespondența cu alte instituții',
-    cod: 'COR-INST',
-    descriere: 'Corespondența oficială cu alte instituții publice',
-    perioadaRetentie: 10,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Contracte și Convenții',
-    cod: 'CONTR-FIS',  // ✅ Schimbat codul să nu conflicteze cu cel existent
-    descriere: 'Contracte de achiziții, prestări servicii și convenții - fișiere',
-    perioadaRetentie: 10,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['confidential'].id
-  },
-  {
-    nume: 'Documente financiar-contabile',
-    cod: 'FIN-CONT',
-    descriere: 'Facturi, chitanțe, ordine de plată, situații financiare',
-    perioadaRetentie: 10,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['confidential'].id
-  },
-  {
-    nume: 'Documente de personal',
-    cod: 'PERSONAL',
-    descriere: 'Dosare de personal, concursuri, modificări contractuale',
-    perioadaRetentie: 75,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['confidential'].id
-  },
-  {
-    nume: 'Procese verbale fișiere',
-    cod: 'PV-FIS',  // ✅ Schimbat codul să nu conflicteze
-    descriere: 'Procese verbale diverse - ședințe, constatări, recepții - fișiere',
-    perioadaRetentie: 10,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Autorizații și Avize',
-    cod: 'AUTO-AVIZE',
-    descriere: 'Autorizații de construire, avize, certificate de urbanism',
-    perioadaRetentie: 25,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Rapoarte și Evidențe',
-    cod: 'RAP-EVID',
-    descriere: 'Rapoarte periodice, evidențe statistice, inventare',
-    perioadaRetentie: 5,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Documente juridice',
-    cod: 'JURIDIC',
-    descriere: 'Închirieri, concesiuni, litigii, acte notariale',
-    perioadaRetentie: 50,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['confidential'].id
-  },
-  {
-    nume: 'Proiecte și Investiții',
-    cod: 'PROIECTE',
-    descriere: 'Documentația pentru proiecte de investiții și dezvoltare',
-    perioadaRetentie: 25,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Servicii publice',
-    cod: 'SERV-PUB',
-    descriere: 'Documente privind serviciile publice locale',
-    perioadaRetentie: 10,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Arhivă și Evidențe speciale',
-    cod: 'ARHIVA',
-    descriere: 'Documente pentru arhivare și evidențe speciale',
-    perioadaRetentie: 100,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  },
-  {
-    nume: 'Necategorizat',
-    cod: 'NECATEG',
-    descriere: 'Documente temporare sau fără categorie specifică',
-    perioadaRetentie: 3,
-    active: true,
-    confidentialitateDefaultId: confidentialitateDocs['public'].id
-  }
-]
-
-for (const categorie of categoriiFisiere) {
-  await prisma.categorieDocument.create({  // ✅ Folosește CategorieDocument
-    data: categorie
-  })
-}
-
-    console.log('📂 Categorii de fișiere create')
+    console.log('📝 Tipuri documente create cu categorii asociate')
 
     console.log('\n✅ Seed complet cu succes!')
     console.log('\n📋 Utilizatori de test creați:')
@@ -675,21 +604,15 @@ for (const categorie of categoriiFisiere) {
     console.log('2. Hotărâri Consiliu Local: Hotărâre CL, Proces Verbal Ședință')
     console.log('3. Contabilitate: Factură, Contract, Raport Financiar')
     console.log('4. Corespondența cu Cetățenii: Sesizare, Cerere, Plângere, Comunicat, Răspuns')
-    console.log('\n📂 Categorii de fișiere create:')
-    console.log('1. Corespondența cu cetățenii (5 ani)')
-    console.log('2. Corespondența cu alte instituții (10 ani)')
-    console.log('3. Hotărâri și Dispoziții (50 ani)')
-    console.log('4. Contracte și Convenții (10 ani)')
+    console.log('\n📁 Categorii de documente create:')
+    console.log('1. Hotărâri și Dispoziții (50 ani)')
+    console.log('2. Contracte și Convenții (10 ani)')
+    console.log('3. Corespondența cu cetățenii (5 ani)')
+    console.log('4. Corespondența cu alte instituții (10 ani)')
     console.log('5. Documente financiar-contabile (10 ani)')
-    console.log('6. Documente de personal (75 ani)')
-    console.log('7. Procese verbale (10 ani)')
-    console.log('8. Autorizații și Avize (25 ani)')
-    console.log('9. Rapoarte și Evidențe (5 ani)')
-    console.log('10. Documente juridice (50 ani)')
-    console.log('11. Proiecte și Investiții (25 ani)')
-    console.log('12. Servicii publice (10 ani)')
-    console.log('13. Arhivă și Evidențe speciale (100 ani)')
-    console.log('14. Necategorizat (3 ani)')
+    console.log('6. Procese verbale (10 ani)')
+    console.log('7. Arhivă și Evidențe speciale (100 ani)')
+    console.log('\n🔗 Relații tip document - categorie create corect!')
     
   } catch (error) {
     console.error('❌ Eroare în timpul seed-ului:', error)
