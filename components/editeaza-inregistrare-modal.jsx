@@ -194,7 +194,7 @@ export function EditeazaInregistrareModal({
     },    onSuccess: () => {
       setFormData(prev => ({ ...prev, fisierAtas: null }))
       setFisierVechiSters(true) // marchează că fișierul vechi a fost șters manual
-      crudNotifications.delete('Fișierul')
+      crudNotifications.deleted('Fișierul', inregistrare.fisiere?.[0]?.numeOriginal || 'fișier')
     },
     onError: (error) => {
       notifyError('Eroare la ștergerea fișierului: ' + error.message)
@@ -249,10 +249,26 @@ export function EditeazaInregistrareModal({
       notifyError('Expeditorul este obligatoriu')
       return
     }
+    if (!formData.destinatarId || !formData.destinatarId.trim()) {
+      notifyError('Destinatarul este obligatoriu')
+      return
+    }
     if (!formData.obiect.trim()) {
       notifyError('Obiectul este obligatoriu')
       return
-    }    // Dacă nu există niciun fișier atașat, nu permite submitul
+    }
+    if (!formData.numarDocument.trim()) {
+      notifyError('Numărul documentului este obligatoriu')
+      return
+    }
+    if (!formData.dataDocument || !formData.dataDocument.trim()) {
+      notifyError('Data documentului este obligatorie')
+      return
+    }
+    if (!formData.tipDocumentId || !formData.tipDocumentId.trim()) {
+      notifyError('Tipul documentului este obligatoriu')
+      return
+    }
     if (!formData.fisierAtas) {
       notifyError('Este obligatoriu să atașați un fișier!')
       return
@@ -351,10 +367,11 @@ export function EditeazaInregistrareModal({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="destinatar">Destinatar</Label>
+              <Label htmlFor="destinatar">Destinatar <span className="text-red-500">*</span></Label>
               <Select 
                 value={formData.destinatarId} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, destinatarId: value }))}
+                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selectează destinatarul" />
@@ -397,30 +414,33 @@ export function EditeazaInregistrareModal({
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="numarDocument">Număr Document</Label>
+              <Label htmlFor="numarDocument">Număr Document <span className="text-red-500">*</span></Label>
               <Input
                 id="numarDocument"
                 value={formData.numarDocument}
                 onChange={(e) => setFormData(prev => ({ ...prev, numarDocument: e.target.value }))}
                 placeholder="Nr. document"
+                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dataDocument">Data Document</Label>
+              <Label htmlFor="dataDocument">Data Document <span className="text-red-500">*</span></Label>
               <Input
                 id="dataDocument"
                 type="date"
                 value={formData.dataDocument}
                 onChange={(e) => setFormData(prev => ({ ...prev, dataDocument: e.target.value }))}
+                required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="tipDocument">Tip Document</Label>
+              <Label htmlFor="tipDocument">Tip Document <span className="text-red-500">*</span></Label>
               <Select 
                 value={formData.tipDocumentId} 
                 onValueChange={(value) => setFormData(prev => ({ ...prev, tipDocumentId: value }))}
+                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selectează tipul" />
@@ -437,7 +457,8 @@ export function EditeazaInregistrareModal({
 
           {/* File Upload Section */}
           <div className="space-y-2">
-            <Label>Fișier Atașat (opțional)</Label>            {formData.fisierAtas && !file && (
+            <Label>Fișier Atașat <span className="text-red-500">*</span></Label>
+            {formData.fisierAtas && !file && (
               <div className="flex items-center gap-2 p-2 bg-gray-50 rounded w-full mb-2">
                 <File className="h-5 w-5 text-blue-600" />
                 <span className="text-sm font-medium flex-1 text-left">
@@ -518,6 +539,7 @@ export function EditeazaInregistrareModal({
                     const selectedFile = e.target.files?.[0]
                     if (selectedFile) handleFileSelect(selectedFile)
                   }}
+                  // required eliminat pentru a permite submit dacă există deja un fișier atașat
                 />
               </CardContent>
             </Card>
