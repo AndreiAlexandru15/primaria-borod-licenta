@@ -76,7 +76,9 @@ export function EditeazaInregistrareModal({
         dataDocument: inregistrare.dataFisier ? new Date(inregistrare.dataFisier).toISOString().split('T')[0] : '',
         tipDocumentId: inregistrare.tipDocumentId?.toString() || '',
         numarDocument: inregistrare.numarDocument || '',
+        fisierAtas: inregistrare.fisiere?.[0]?.id || null // presupunem un singur fișier
       })
+      setFile(null)
     }
   }, [isOpen, inregistrare])
   
@@ -222,6 +224,8 @@ export function EditeazaInregistrareModal({
       dataDocument: formData.dataDocument || null,
       tipDocumentId: formData.tipDocumentId ? parseInt(formData.tipDocumentId) : null,
       destinatarId: formData.destinatarId ? parseInt(formData.destinatarId) : null,
+      fisierAtas: formData.fisierAtas || null,
+      fisierVechiId: inregistrare.fisiere?.[0]?.id || null // trimite id-ul vechi pentru backend
     }
 
     editInregistrareMutation.mutate(dataToSubmit)
@@ -351,6 +355,21 @@ export function EditeazaInregistrareModal({
           {/* File Upload Section */}
           <div className="space-y-2">
             <Label>Fișier Atașat (opțional)</Label>
+            {formData.fisierAtas && !file && (
+              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded w-full mb-2">
+                <File className="h-5 w-5 text-blue-600" />
+                <span className="text-sm font-medium flex-1 text-left">Fișier existent</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFormData(prev => ({ ...prev, fisierAtas: null }))}
+                  className="h-6 w-6 p-0"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
             <Card 
               className={`border-2 border-dashed transition-colors ${
                 isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'

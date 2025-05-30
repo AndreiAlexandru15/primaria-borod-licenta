@@ -78,13 +78,19 @@ export async function PUT(request, { params }) {
       status,
       documenteIds = [], // Noi documente de atașat
       numarDocument, // Nou
+      fisierAtas, // Fișierul atașat nou
+      fisierVechiId, // ID-ul fișierului vechi, dacă există
     } = body
 
     // Verifică dacă înregistrarea există
     const inregistrareExistenta = await prisma.inregistrare.findUnique({
       where: { id },
       include: {
-        documente: true
+        fisiere: true,
+        confidentialitate: true,
+        destinatarUtilizator: true,
+        tipDocument: true,
+        registru: true
       }
     })
 
@@ -112,8 +118,34 @@ export async function PUT(request, { params }) {
           confidential,
           status,
           numarDocument, // Adăugat
+          // updatează fișierul dacă e nevoie
+          fisiere: fisierAtas
+            ? {
+                set: [{ id: fisierAtas }]
+              }
+            : { set: [] }
         }
       })
+
+      // Șterge fișierul vechi dacă a fost înlocuit
+      if (fisierVechiId && fisierAtas && fisierVechiId !== fisierAtas) {
+        // Șterge din DB
+        await tx.fisier.delete({ where: { id: fisierVechiId } })
+        // Șterge din storage
+        const oldFile = inregistrareExistenta.fisiere.find(f => f.id === fisierVechiId)
+        if (oldFile && oldFile.cale) {
+          const fs = require('fs')
+          const path = require('path')
+          const filePath = path.join(process.cwd(), 'uploads', oldFile.cale)
+          try {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath)
+            }
+          } catch (err) {
+            console.error('Eroare la ștergerea fișierului din storage:', err)
+          }
+        }
+      }
 
       // Dacă sunt specificate documente noi, le înlocuiește
       if (documenteIds.length > 0) {
@@ -138,19 +170,11 @@ export async function PUT(request, { params }) {
       return await tx.inregistrare.findUnique({
         where: { id },
         include: {
-          registru: {
-            include: {
-              departament: true
-            }
-          },
-          documente: {
-            include: {
-              document: true
-            },
-            orderBy: {
-              ordinea: 'asc'
-            }
-          }
+          fisiere: true,
+          confidentialitate: true,
+          destinatarUtilizator: true,
+          tipDocument: true,
+          registru: true
         }
       })
     })    
