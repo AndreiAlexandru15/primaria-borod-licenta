@@ -98,7 +98,7 @@ export async function POST(request) {
     }    // Generează nume unic pentru fișier
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    
+
     // Calculează hash pentru fișier
     const hash = crypto.createHash('sha256').update(buffer).digest('hex')
     
@@ -106,8 +106,19 @@ export async function POST(request) {
     const originalName = file.name
     const extension = originalName.split('.').pop()
     
-    // Nume fișier unic
-    const uniqueFileName = `${Date.now()}_${crypto.randomUUID()}.${extension}`
+    // Generează nume fișier cu structura specificată
+    let uniqueFileName
+    const numarInregistrare = formData.get('numarInregistrare')
+    const numeDocument = formData.get('numeDocument')
+    
+    if (numarInregistrare && numeDocument) {
+      // Pentru editare: numarInregistrare_numeDocument.extensie
+      const numeDocumentCurat = numeDocument.replace(/[^a-zA-Z0-9\-_]/g, '_')
+      uniqueFileName = `${numarInregistrare}_${numeDocumentCurat}.${extension}`
+    } else {
+      // Pentru upload nou: nume unic cu timestamp
+      uniqueFileName = `${Date.now()}_${crypto.randomUUID()}.${extension}`
+    }
     const filePath = join(fullUploadDir, uniqueFileName)
     const relativePath = `${uploadPath}/${uniqueFileName}`
 

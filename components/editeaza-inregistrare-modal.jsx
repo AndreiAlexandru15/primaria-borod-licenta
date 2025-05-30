@@ -28,7 +28,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
-import { 
+import axios from 'axios'
+import { notifyError, crudNotifications } from '@/lib/notifications'
+import {
   FileText, 
   User, 
   Upload,
@@ -38,8 +40,6 @@ import {
   Calendar,
   Edit
 } from "lucide-react"
-import { crudNotifications, notifyError } from "@/lib/notifications"
-import axios from "axios"
 
 export function EditeazaInregistrareModal({ 
   isOpen,
@@ -52,16 +52,17 @@ export function EditeazaInregistrareModal({
   const [formData, setFormData] = useState({
     expeditor: '',
     destinatarId: '',
-    obiect: '',
-    observatii: '',
+    obiect: '',    observatii: '',
     dataDocument: '',
     tipDocumentId: '',
     numarDocument: '',
   })
-  const [file, setFile] = useState(null)  
+  
+  const [file, setFile] = useState(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
+  const [fisierVechiSters, setFisierVechiSters] = useState(false) // urmărește dacă fișierul vechi a fost șters manual
   const fileInputRef = useRef(null)
   const queryClient = useQueryClient()
   // Populează formularul cu datele înregistrării când se deschide modalul
@@ -74,8 +75,7 @@ export function EditeazaInregistrareModal({
       const dataDocument = inregistrare.fisiere?.[0]?.dataFisier 
         ? new Date(inregistrare.fisiere[0].dataFisier).toISOString().split('T')[0] 
         : '';
-      
-      setFormData({
+        setFormData({
         expeditor: inregistrare.expeditor || '',
         destinatarId: inregistrare.destinatarId?.toString() || '',
         obiect: inregistrare.obiect || '',
@@ -86,6 +86,7 @@ export function EditeazaInregistrareModal({
         fisierAtas: inregistrare.fisiere?.[0]?.id || null // presupunem un singur fișier
       })
       setFile(null)
+      setFisierVechiSters(false) // resetează când se deschide modalul
     }
   }, [isOpen, inregistrare])
     // Query pentru tipurile de documente ale registrului
@@ -111,7 +112,6 @@ export function EditeazaInregistrareModal({
     },
     enabled: isOpen && !!departamentId
   })
-  
   // Mutation pentru upload fișier
   const uploadFileMutation = useMutation({
     mutationFn: async (fileToUpload) => {
@@ -119,6 +119,21 @@ export function EditeazaInregistrareModal({
       
       const formDataUpload = new FormData()
       formDataUpload.append('file', fileToUpload)
+      
+      // Adaugă departamentId și registruId pentru organizarea fișierelor
+      if (departamentId) {
+        formDataUpload.append('departamentId', departamentId)
+      }
+      if (registruId) {
+        formDataUpload.append('registruId', registruId)
+      }
+        // Adaugă informații pentru numele fișierului la editare
+      if (inregistrare) {
+        formDataUpload.append('numarInregistrare', inregistrare.numarInregistrare)
+        // Folosește numele fișierului fără extensie
+        const numeDocument = fileToUpload.name.split('.')[0]
+        formDataUpload.append('numeDocument', numeDocument)
+      }
       
       const response = await axios.post('/api/fisiere', formDataUpload, {
         headers: {
@@ -147,7 +162,6 @@ export function EditeazaInregistrareModal({
       notifyError('Eroare la upload: ' + error.message)
     }
   })
-
   // Mutation pentru editarea înregistrării
   const editInregistrareMutation = useMutation({
     mutationFn: async (data) => {
@@ -169,6 +183,23 @@ export function EditeazaInregistrareModal({
     }
   })
 
+  // Mutation pentru ștergerea fișierului existent
+  const deleteFileMutation = useMutation({
+    mutationFn: async (fileId) => {
+      const response = await axios.delete(`/api/fisiere/${fileId}`)
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la ștergerea fișierului')
+      }
+      return response.data
+    },    onSuccess: () => {
+      setFormData(prev => ({ ...prev, fisierAtas: null }))
+      setFisierVechiSters(true) // marchează că fișierul vechi a fost șters manual
+      crudNotifications.delete('Fișierul')
+    },
+    onError: (error) => {
+      notifyError('Eroare la ștergerea fișierului: ' + error.message)
+    }
+  })
   const resetForm = () => {
     setFormData({
       expeditor: '',
@@ -182,6 +213,7 @@ export function EditeazaInregistrareModal({
     setFile(null)
     setUploadProgress(0)
     setIsUploading(false)
+    setFisierVechiSters(false) // resetează și această variabilă
   }
 
   const handleFileSelect = useCallback((selectedFile) => {
@@ -222,15 +254,22 @@ export function EditeazaInregistrareModal({
     if (!formData.obiect.trim()) {
       notifyError('Obiectul este obligatoriu')
       return
-    }    const dataToSubmit = {
+    }    // Determină dacă trebuie șters fișierul vechi
+    const idFisierVechi = inregistrare.fisiere?.[0]?.id || null
+    const idFisierNou = formData.fisierAtas || null
+    let fisierVechiId = null
+    if (!fisierVechiSters && idFisierVechi && idFisierNou && idFisierVechi !== idFisierNou) {
+      fisierVechiId = idFisierVechi
+    }
+    const dataToSubmit = {
       ...formData,
       departamentId: parseInt(departamentId),
       registruId: parseInt(registruId),
       dataDocument: formData.dataDocument || null,
       tipDocumentId: formData.tipDocumentId || null,
       destinatarId: formData.destinatarId || null,
-      fisierAtas: formData.fisierAtas || null,
-      fisierVechiId: inregistrare.fisiere?.[0]?.id || null // trimite id-ul vechi pentru backend
+      fisierAtas: idFisierNou,
+      fisierVechiId: fisierVechiId
     }
 
     editInregistrareMutation.mutate(dataToSubmit)
@@ -395,17 +434,24 @@ export function EditeazaInregistrareModal({
 
           {/* File Upload Section */}
           <div className="space-y-2">
-            <Label>Fișier Atașat (opțional)</Label>
-            {formData.fisierAtas && !file && (
+            <Label>Fișier Atașat (opțional)</Label>            {formData.fisierAtas && !file && (
               <div className="flex items-center gap-2 p-2 bg-gray-50 rounded w-full mb-2">
                 <File className="h-5 w-5 text-blue-600" />
-                <span className="text-sm font-medium flex-1 text-left">Fișier existent</span>
-                <Button
+                <span className="text-sm font-medium flex-1 text-left">
+                  {inregistrare.fisiere?.[0]?.numeOriginal || 'Fișier existent'}
+                </span>                <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setFormData(prev => ({ ...prev, fisierAtas: null }))}
+                  onClick={() => {
+                    if (inregistrare.fisiere?.[0]?.id) {
+                      deleteFileMutation.mutate(inregistrare.fisiere[0].id)
+                    } else {
+                      setFormData(prev => ({ ...prev, fisierAtas: null }))
+                    }
+                  }}
                   className="h-6 w-6 p-0"
+                  disabled={deleteFileMutation.isPending}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

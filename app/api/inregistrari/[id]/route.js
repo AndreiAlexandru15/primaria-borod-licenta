@@ -137,25 +137,32 @@ export async function PUT(request, { params }) {
             dataFisier: new Date(dataDocument)
           }
         })
-      }
-
-      // Șterge fișierul vechi dacă a fost înlocuit
+      }      // Șterge fișierul vechi dacă a fost înlocuit
       if (fisierVechiId && fisierAtas && fisierVechiId !== fisierAtas) {
-        // Șterge din DB
-        await tx.fisier.delete({ where: { id: fisierVechiId } })
-        // Șterge din storage
-        const oldFile = inregistrareExistenta.fisiere.find(f => f.id === fisierVechiId)
-        if (oldFile && oldFile.caleRelativa) {
-          const fs = require('fs')
-          const path = require('path')
-          const filePath = path.join(process.cwd(), 'uploads', oldFile.caleRelativa)
-          try {
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath)
+        // Verifică mai întâi dacă fișierul există în baza de date
+        const fisierExistent = await tx.fisier.findUnique({
+          where: { id: fisierVechiId }
+        })
+        
+        if (fisierExistent) {
+          // Șterge din DB doar dacă există
+          await tx.fisier.delete({ where: { id: fisierVechiId } })
+          
+          // Șterge din storage
+          if (fisierExistent.caleRelativa) {
+            const fs = require('fs')
+            const path = require('path')
+            const filePath = path.join(process.cwd(), 'uploads', fisierExistent.caleRelativa)
+            try {
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath)
+              }
+            } catch (err) {
+              console.error('Eroare la ștergerea fișierului din storage:', err)
             }
-          } catch (err) {
-            console.error('Eroare la ștergerea fișierului din storage:', err)
           }
+        } else {
+          console.log(`Fișierul cu ID ${fisierVechiId} a fost deja șters`)
         }
       }
 
