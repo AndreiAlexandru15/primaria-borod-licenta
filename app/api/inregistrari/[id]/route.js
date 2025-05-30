@@ -67,7 +67,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { id } = await params
-    const body = await request.json()
+    const body = await request.json()    
     const { 
       expeditor, 
       destinatar, 
@@ -78,6 +78,9 @@ export async function PUT(request, { params }) {
       status,
       documenteIds = [], // Noi documente de atașat
       numarDocument, // Nou
+      dataDocument, // Data documentului - va fi salvată în fisier
+      tipDocumentId, // Tipul documentului
+      destinatarId, // ID-ul destinatarului
       fisierAtas, // Fișierul atașat nou
       fisierVechiId, // ID-ul fișierului vechi, dacă există
     } = body
@@ -102,22 +105,21 @@ export async function PUT(request, { params }) {
         },
         { status: 404 }
       )
-    }
-
-    // Actualizează în tranzacție
-    const result = await prisma.$transaction(async (tx) => {
-      // Actualizează înregistrarea
+    }    // Actualizează în tranzacție
+    const result = await prisma.$transaction(async (tx) => {      // Actualizează înregistrarea
       const inregistrare = await tx.inregistrare.update({
         where: { id },
         data: {
           expeditor,
           destinatar,
+          destinatarId: destinatarId || null,
           obiect,
           observatii,
           urgent,
           confidential,
           status,
-          numarDocument, // Adăugat
+          numarDocument,
+          tipDocumentId: tipDocumentId || null,
           // updatează fișierul dacă e nevoie
           fisiere: fisierAtas
             ? {
@@ -127,16 +129,26 @@ export async function PUT(request, { params }) {
         }
       })
 
+      // Actualizează data documentului în fișierul asociat
+      if (fisierAtas && dataDocument) {
+        await tx.fisier.update({
+          where: { id: fisierAtas },
+          data: {
+            dataFisier: new Date(dataDocument)
+          }
+        })
+      }
+
       // Șterge fișierul vechi dacă a fost înlocuit
       if (fisierVechiId && fisierAtas && fisierVechiId !== fisierAtas) {
         // Șterge din DB
         await tx.fisier.delete({ where: { id: fisierVechiId } })
         // Șterge din storage
         const oldFile = inregistrareExistenta.fisiere.find(f => f.id === fisierVechiId)
-        if (oldFile && oldFile.cale) {
+        if (oldFile && oldFile.caleRelativa) {
           const fs = require('fs')
           const path = require('path')
-          const filePath = path.join(process.cwd(), 'uploads', oldFile.cale)
+          const filePath = path.join(process.cwd(), 'uploads', oldFile.caleRelativa)
           try {
             if (fs.existsSync(filePath)) {
               fs.unlinkSync(filePath)
@@ -177,7 +189,7 @@ export async function PUT(request, { params }) {
           registru: true
         }
       })
-    })    
+    })
     return NextResponse.json(serializeBigInt({
       success: true,
       data: result,

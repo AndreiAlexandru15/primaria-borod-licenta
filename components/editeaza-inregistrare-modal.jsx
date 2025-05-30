@@ -64,16 +64,23 @@ export function EditeazaInregistrareModal({
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef(null)
   const queryClient = useQueryClient()
-  
   // Populează formularul cu datele înregistrării când se deschide modalul
   useEffect(() => {
     if (isOpen && inregistrare) {
+      console.log('Populez formularul cu:', inregistrare)
+      console.log('tipDocumentId din inregistrare:', inregistrare.tipDocumentId)
+      
+      // Obține data documentului din primul fișier atașat
+      const dataDocument = inregistrare.fisiere?.[0]?.dataFisier 
+        ? new Date(inregistrare.fisiere[0].dataFisier).toISOString().split('T')[0] 
+        : '';
+      
       setFormData({
         expeditor: inregistrare.expeditor || '',
         destinatarId: inregistrare.destinatarId?.toString() || '',
         obiect: inregistrare.obiect || '',
         observatii: inregistrare.observatii || '',
-        dataDocument: inregistrare.dataFisier ? new Date(inregistrare.dataFisier).toISOString().split('T')[0] : '',
+        dataDocument: dataDocument,
         tipDocumentId: inregistrare.tipDocumentId?.toString() || '',
         numarDocument: inregistrare.numarDocument || '',
         fisierAtas: inregistrare.fisiere?.[0]?.id || null // presupunem un singur fișier
@@ -81,13 +88,13 @@ export function EditeazaInregistrareModal({
       setFile(null)
     }
   }, [isOpen, inregistrare])
-  
-  // Query pentru tipurile de documente ale registrului
+    // Query pentru tipurile de documente ale registrului
   const { data: tipuriDocumente = [] } = useQuery({
     queryKey: ['tipuri-documente', registruId],
     queryFn: async () => {
       if (!registruId) return []
       const response = await axios.get(`/api/tipuri-documente?registruId=${registruId}`)
+      console.log('Tipuri documente încărcate:', response.data.data)
       return response.data.success ? response.data.data : []
     },
     enabled: !!registruId && isOpen
@@ -150,9 +157,9 @@ export function EditeazaInregistrareModal({
       }
       return response.data.data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries(['inregistrari'])
-      crudNotifications.edit('Înregistrarea a fost editată cu succes!')
+      crudNotifications.edit('Înregistrarea', data.numarInregistrare)
       onOpenChange(false)
       resetForm()
       if (onSuccess) onSuccess()
@@ -215,15 +222,13 @@ export function EditeazaInregistrareModal({
     if (!formData.obiect.trim()) {
       notifyError('Obiectul este obligatoriu')
       return
-    }
-
-    const dataToSubmit = {
+    }    const dataToSubmit = {
       ...formData,
       departamentId: parseInt(departamentId),
       registruId: parseInt(registruId),
       dataDocument: formData.dataDocument || null,
-      tipDocumentId: formData.tipDocumentId ? parseInt(formData.tipDocumentId) : null,
-      destinatarId: formData.destinatarId ? parseInt(formData.destinatarId) : null,
+      tipDocumentId: formData.tipDocumentId || null,
+      destinatarId: formData.destinatarId || null,
       fisierAtas: formData.fisierAtas || null,
       fisierVechiId: inregistrare.fisiere?.[0]?.id || null // trimite id-ul vechi pentru backend
     }
@@ -234,7 +239,44 @@ export function EditeazaInregistrareModal({
   const removeFile = () => {
     setFile(null)
     setFormData(prev => ({ ...prev, fisierAtas: null }))
-  }
+  }  // Sincronizează tipDocumentId după ce tipuriDocumente s-a încărcat
+  useEffect(() => {
+    console.log('Verificare sincronizare tip document:', {
+      isOpen,
+      inregistrare: !!inregistrare,
+      tipuriDocumenteLength: tipuriDocumente.length,
+      inregistrareTipDocumentId: inregistrare?.tipDocumentId,
+      formDataTipDocumentId: formData.tipDocumentId
+    })
+    
+    if (
+      isOpen &&
+      inregistrare &&
+      tipuriDocumente.length > 0 &&
+      inregistrare.tipDocumentId &&
+      !formData.tipDocumentId
+    ) {
+      console.log('Setez tipDocumentId din inregistrare:', inregistrare.tipDocumentId)
+      setFormData(prev => ({
+        ...prev,
+        tipDocumentId: inregistrare.tipDocumentId.toString()
+      }))
+    }
+  }, [isOpen, inregistrare, tipuriDocumente, formData.tipDocumentId])
+  // Corectează formatul datei dacă nu este deja string YYYY-MM-DD
+  useEffect(() => {
+    if (
+      isOpen &&
+      inregistrare &&
+      inregistrare.fisiere?.[0]?.dataFisier &&
+      (typeof formData.dataDocument !== 'string' || formData.dataDocument.length !== 10)
+    ) {
+      setFormData(prev => ({
+        ...prev,
+        dataDocument: new Date(inregistrare.fisiere[0].dataFisier).toISOString().split('T')[0]
+      }))
+    }
+  }, [isOpen, inregistrare, formData.dataDocument])
 
   if (!inregistrare) return null
 
@@ -340,11 +382,10 @@ export function EditeazaInregistrareModal({
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selectează tipul" />
-                </SelectTrigger>
-                <SelectContent>
+                </SelectTrigger>                <SelectContent>
                   {tipuriDocumente.map((tip) => (
                     <SelectItem key={tip.id} value={tip.id.toString()}>
-                      {tip.denumire}
+                      {tip.nume}
                     </SelectItem>
                   ))}
                 </SelectContent>
