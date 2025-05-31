@@ -314,9 +314,8 @@ model Fisier {
   metadate  Json?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
   // Relații
-  inregistrare Inregistrare?      @relation(fields: [inregistrareId], references: [id])
+  inregistrare Inregistrare?      @relation(fields: [inregistrareId], references: [id], onDelete: Cascade)
   categorie    CategorieDocument? @relation(fields: [categorieId], references: [id])
   auditLog     AuditLog[]
   istoric      IstoricFisier[]
