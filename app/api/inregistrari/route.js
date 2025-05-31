@@ -16,6 +16,19 @@ function serializeBigInt(obj) {
   ))
 }
 
+// Helper function to build file path from FILES_PATH + caleRelativa + numeFisierDisk
+function buildFilePath(caleRelativa, numeFisierDisk) {
+  const filesPath = process.env.FILES_PATH || join(process.cwd(), 'uploads')
+  return join(filesPath, caleRelativa, numeFisierDisk)
+}
+
+// Helper function to build file URL for client access
+function buildFileUrl(caleRelativa, numeFisierDisk) {
+  // Construiește URL-ul relativ pentru accesul din client
+  const cleanPath = `${caleRelativa}/${numeFisierDisk}`.replace(/\\/g, '/')
+  return `/api/files/${cleanPath}`
+}
+
 // Helper function to rename files based on registration number
 async function renameFisiereForInregistrare(inregistrareId, numarInregistrare) {
   try {
@@ -31,7 +44,7 @@ async function renameFisiereForInregistrare(inregistrareId, numarInregistrare) {
     })
 
     for (const fisier of fisiere) {
-      const oldPath = join(process.cwd(), fisier.caleRelativa)
+      const oldPath = buildFilePath(fisier.caleRelativa, fisier.numeFisierDisk)
       
       if (existsSync(oldPath)) {
         // Creează noul nume: "Nr. Înregistrare_numeOriginal"
@@ -39,20 +52,17 @@ async function renameFisiereForInregistrare(inregistrareId, numarInregistrare) {
         const numeOriginalFaraExtensie = fisier.numeOriginal.replace(new RegExp(`\\.${fisier.extensie}$`, 'i'), '')
         const numeNou = `${numarInregistrare}_${numeOriginalFaraExtensie}${extensie}`
         
-        // Calculează noua cale
-        const oldDir = dirname(fisier.caleRelativa)
-        const nouaCaleRelativa = `${oldDir}/${numeNou}`.replace(/\\/g, '/')
-        const newPath = join(process.cwd(), nouaCaleRelativa)
+        // Calculează noua cale completă
+        const newPath = buildFilePath(fisier.caleRelativa, numeNou)
 
         // Redenumește fișierul pe disk
         await rename(oldPath, newPath)
 
-        // Actualizează baza de date
+        // Actualizează baza de date - doar numeFisierDisk se schimbă
         await prisma.fisier.update({
           where: { id: fisier.id },
           data: {
-            numeFisierDisk: numeNou,
-            caleRelativa: nouaCaleRelativa
+            numeFisierDisk: numeNou
           }
         })
 
@@ -93,6 +103,7 @@ export async function GET(request) {
       ]
     }
     const skip = (page - 1) * limit
+    
     // Execută query-ul cu include pentru relații
     const [inregistrari, total] = await Promise.all([
       prisma.inregistrare.findMany({
@@ -103,7 +114,7 @@ export async function GET(request) {
             orderBy: { createdAt: 'asc' }
           },
           confidentialitate: true,
-          destinatarUtilizator: true // fix relation name
+          destinatarUtilizator: true
         },
         orderBy: [
           { dataInregistrare: 'desc' },
@@ -114,21 +125,43 @@ export async function GET(request) {
       }),
       prisma.inregistrare.count({ where })
     ])
-    // Adaugă dataFisier și confidentialitateFisierDenumire/cod la nivel de inregistrare pentru primul fișier (pentru DataTable)
+
+    // Adaugă dataFisier, confidentialitate și document object pentru primul fișier
     const inregistrariWithDataFisier = inregistrari.map(inr => {
       const fisier = inr.fisiere?.[0];
+      
+      // Construiește obiectul document pentru primul fișier
+      let document = null;
+      if (fisier) {
+        // Folosește noua funcție pentru URL
+        const fileUrl = buildFileUrl(fisier.caleRelativa, fisier.numeFisierDisk);
+        
+        document = {
+          url: fileUrl,
+          downloadUrl: `${fileUrl}?download=true`,
+          name: fisier.numeOriginal || fisier.numeFisierDisk,
+          type: fisier.tipMime || `application/${fisier.extensie}`,
+          size: fisier.marime ? fisier.marime.toString() : null,
+          extension: fisier.extensie,
+          fullPath: buildFilePath(fisier.caleRelativa, fisier.numeFisierDisk) // pentru debugging
+        };
+      }
+      
       return {
         ...inr,
         dataFisier: fisier?.dataFisier || null,
         confidentialitateFisierDenumire: fisier?.confidentialitateDenumire || fisier?.confidentialitate || inr.confidentialitate?.denumire || null,
         confidentialitateFisierCod: fisier?.confidentialitateCod || null,
         destinatarNume: inr.destinatarUtilizator ? `${inr.destinatarUtilizator.nume} ${inr.destinatarUtilizator.prenume}` : null,
-        destinatarFunctie: inr.destinatarUtilizator?.functie || null
+        destinatarFunctie: inr.destinatarUtilizator?.functie || null,
+        document: document // Adaugă obiectul document complet
       };
     })
+
     const totalPages = Math.ceil(total / limit)
     const hasNextPage = page < totalPages
     const hasPreviousPage = page > 1
+
     const serializedData = serializeBigInt({
       inregistrari: inregistrariWithDataFisier,
       pagination: {
@@ -140,6 +173,7 @@ export async function GET(request) {
         hasPreviousPage
       }
     })
+
     return NextResponse.json({
       success: true,
       data: serializedData
@@ -164,17 +198,17 @@ export async function POST(request) {
     const { 
       registruId, 
       expeditor, 
-      destinatarId, // user ID
+      destinatarId,
       obiect, 
       observatii,
-      dataDocument, // Data documentului din formular
-      dataInregistrare, // Data înregistrării din formular
+      dataDocument,
+      dataInregistrare,
       urgent = false, 
       confidential = false,
       tipDocumentId = null,
-      fisiereIds = [], // Array de ID-uri de fișiere existente
-      confidentialitateId = null, // Adăugat pentru a seta nivelul de confidențialitate
-      numarDocument // Numărul documentului
+      fisiereIds = [],
+      confidentialitateId = null,
+      numarDocument
     } = body
 
     // Validare
@@ -231,7 +265,7 @@ export async function POST(request) {
     // Folosește data înregistrării din formular sau data curentă ca fallback
     const finalDataInregistrare = dataInregistrare ? new Date(dataInregistrare) : new Date()
     
-    // Găsește ultimul număr de înregistrare pentru registru (fără an)
+    // Găsește ultimul număr de înregistrare pentru registru
     const ultimaInregistrare = await prisma.inregistrare.findFirst({
       where: {
         registruId: registruId
@@ -250,12 +284,14 @@ export async function POST(request) {
 
     const numarInregistrare = `${registru.cod}-${String(nextNumber).padStart(4, '0')}`
 
-    // Preia confidentialitateId din body sau din categoria documentului dacă nu e dat
+    // Preia confidentialitateId din body sau din categoria documentului
     let finalConfidentialitateId = confidentialitateId
     if (!finalConfidentialitateId) {
-      // Încearcă să preiei din categoria documentului dacă există fișiere
       if (fisiereIds.length > 0) {
-        const firstFisier = await prisma.fisier.findUnique({ where: { id: fisiereIds[0] }, include: { categorie: true } })
+        const firstFisier = await prisma.fisier.findUnique({ 
+          where: { id: fisiereIds[0] }, 
+          include: { categorie: true } 
+        })
         if (firstFisier?.categorie?.confidentialitateDefaultId) {
           finalConfidentialitateId = firstFisier.categorie.confidentialitateDefaultId
         }
@@ -271,7 +307,7 @@ export async function POST(request) {
           numarInregistrare,
           dataInregistrare: finalDataInregistrare,
           expeditor,
-          destinatarId, // store user ID
+          destinatarId,
           obiect,
           observatii,
           urgent,
@@ -288,7 +324,6 @@ export async function POST(request) {
           inregistrareId: inregistrare.id
         }
         
-        // Adaugă data documentului dacă este furnizată
         if (dataDocument) {
           updateData.dataFisier = new Date(dataDocument)
         }
@@ -312,7 +347,7 @@ export async function POST(request) {
           },
           fisiere: { orderBy: { createdAt: 'asc' } },
           confidentialitate: true,
-          destinatarUtilizator: true // fix relation name
+          destinatarUtilizator: true
         }
       })
     })
@@ -320,14 +355,55 @@ export async function POST(request) {
     // Redenumește fișierele pe disk cu numărul de înregistrare
     if (fisiereIds.length > 0) {
       await renameFisiereForInregistrare(result.id, numarInregistrare)
+      
+      // Actualizează result cu noile nume de fișiere
+      const updatedResult = await prisma.inregistrare.findUnique({
+        where: { id: result.id },
+        include: {
+          registru: { include: { departament: true } },
+          fisiere: { orderBy: { createdAt: 'asc' } },
+          confidentialitate: true,
+          destinatarUtilizator: true
+        }
+      })
+
+      // Adaugă obiectul document pentru primul fișier
+      const fisier = updatedResult.fisiere?.[0];
+      let document = null;
+      if (fisier) {
+        const fileUrl = buildFileUrl(fisier.caleRelativa, fisier.numeFisierDisk);
+        document = {
+          url: fileUrl,
+          downloadUrl: `${fileUrl}?download=true`,
+          name: fisier.numeOriginal || fisier.numeFisierDisk,
+          type: fisier.tipMime || `application/${fisier.extensie}`,
+          size: fisier.marime ? fisier.marime.toString() : null,
+          extension: fisier.extensie,
+          fullPath: buildFilePath(fisier.caleRelativa, fisier.numeFisierDisk)
+        };
+      }
+
+      const finalResult = {
+        ...updatedResult,
+        document: document
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: serializeBigInt(finalResult),
+        message: `Înregistrarea ${numarInregistrare} a fost creată cu succes`
+      }, { status: 201 })
     }
 
-    // Serialize the result to handle BigInt values
-    const serializedResult = serializeBigInt(result)
+    // Adaugă document object chiar și fără fișiere
+    const resultWithDocument = {
+      ...result,
+      document: null
+    }
 
     return NextResponse.json({
       success: true,
-      data: serializedResult,
+      data: serializeBigInt(resultWithDocument),
       message: `Înregistrarea ${numarInregistrare} a fost creată cu succes`
     }, { status: 201 })
 

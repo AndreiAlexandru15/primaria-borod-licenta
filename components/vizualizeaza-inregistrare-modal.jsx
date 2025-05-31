@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 import {
   Dialog,
   DialogContent,
@@ -16,17 +19,20 @@ import {
   FileText, 
   Calendar, 
   User, 
-  MapPin, 
-  Clock,
   ZoomIn,
   ZoomOut,
   ChevronLeft,
   ChevronRight,
-  Eye,
   Edit,
   Trash2,
-  X
+  X,
+  Loader2
 } from "lucide-react";
+
+// Configurare worker PDF.js - folosește worker-ul local
+if (typeof window !== 'undefined') {
+  pdfjs.GlobalWorkerOptions.workerSrc = '/pdf-worker/pdf.worker.min.js';
+}
 
 const VizualizeazaInregistrareModal = ({ 
   inregistrare, 
@@ -37,10 +43,22 @@ const VizualizeazaInregistrareModal = ({
   onDelete 
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(100);
-  
-  const isPDF = inregistrare?.document?.type === 'application/pdf' || 
+  const [numPages, setNumPages] = useState(null);
+  const [scale, setScale] = useState(1.0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+    const isPDF = inregistrare?.document?.type === 'application/pdf' || 
                inregistrare?.document?.name?.toLowerCase().endsWith('.pdf');
+
+  // Reset starea când se schimbă documentul
+  useEffect(() => {
+    if (inregistrare?.document) {
+      setCurrentPage(1);
+      setNumPages(null);
+      setLoading(true);
+      setError(null);
+    }
+  }, [inregistrare?.document?.url]);
 
   const handleDownload = () => {
     if (inregistrare?.document?.url) {
@@ -54,11 +72,11 @@ const VizualizeazaInregistrareModal = ({
   };
 
   const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 25, 200));
+    setScale(prev => Math.min(prev + 0.25, 3.0));
   };
 
   const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 25, 50));
+    setScale(prev => Math.max(prev - 0.25, 0.5));
   };
 
   const handlePrevPage = () => {
@@ -66,7 +84,7 @@ const VizualizeazaInregistrareModal = ({
   };
 
   const handleNextPage = () => {
-    setCurrentPage(prev => prev + 1);
+    setCurrentPage(prev => Math.min(prev + 1, numPages || 1));
   };
 
   const handleEdit = () => {
@@ -77,6 +95,17 @@ const VizualizeazaInregistrareModal = ({
   const handleDelete = () => {
     onDelete?.(inregistrare);
     onOpenChange?.(false);
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }) => {
+    setNumPages(numPages);
+    setLoading(false);
+    setError(null);
+  };
+  const onDocumentLoadError = (error) => {
+    console.error('Eroare la încărcarea PDF-ului:', error);
+    setError('Nu s-a putut încărca documentul PDF');
+    setLoading(false);
   };
 
   const formatDate = (dateString) => {
@@ -125,24 +154,24 @@ const VizualizeazaInregistrareModal = ({
                 </h3>
                 
                 {/* PDF Controls */}
-                {isPDF && inregistrare?.document && (
+                {isPDF && inregistrare?.document && !error && (
                   <div className="flex items-center gap-2">
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={handleZoomOut}
-                      disabled={zoom <= 50}
+                      disabled={scale <= 0.5}
                     >
                       <ZoomOut className="h-4 w-4" />
                     </Button>
                     <span className="text-sm text-gray-600 min-w-[50px] text-center">
-                      {zoom}%
+                      {Math.round(scale * 100)}%
                     </span>
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={handleZoomIn}
-                      disabled={zoom >= 200}
+                      disabled={scale >= 3.0}
                     >
                       <ZoomIn className="h-4 w-4" />
                     </Button>
@@ -155,13 +184,14 @@ const VizualizeazaInregistrareModal = ({
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-sm text-gray-600 min-w-[40px] text-center">
-                      {currentPage}
+                    <span className="text-sm text-gray-600 min-w-[60px] text-center">
+                      {currentPage} / {numPages || '?'}
                     </span>
                     <Button 
                       variant="outline" 
                       size="sm" 
                       onClick={handleNextPage}
+                      disabled={currentPage >= (numPages || 1)}
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
@@ -175,16 +205,52 @@ const VizualizeazaInregistrareModal = ({
                 <div className="h-full flex flex-col">
                   {isPDF ? (
                     <>
-                      <div className="flex-1 border rounded-lg overflow-auto min-h-0 bg-gray-50">
-                        <iframe
-                          src={`${inregistrare.document.url}#page=${currentPage}&zoom=${zoom}`}
-                          className="w-full h-full"
-                          title="PDF Viewer"
-                          style={{ 
-                            transform: `scale(${zoom / 100})`,
-                            transformOrigin: 'top left'
-                          }}
-                        />
+                      <div className="flex-1 border rounded-lg overflow-auto min-h-0 bg-gray-50 flex justify-center items-start p-4">
+                        {loading && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Se încarcă documentul...
+                          </div>
+                        )}
+                        
+                        {error ? (
+                          <div className="flex flex-col items-center gap-4 text-center">
+                            <FileText className="h-16 w-16 text-gray-400" />
+                            <div>
+                              <p className="text-gray-600 mb-2">{error}</p>
+                              <p className="text-sm text-gray-500 mb-4">
+                                {inregistrare.document.name}
+                              </p>
+                              <Button onClick={handleDownload} className="gap-2">
+                                <Download className="h-4 w-4" />
+                                Descarcă Document
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (                          <Document
+                            file={inregistrare.document.url}
+                            onLoadSuccess={onDocumentLoadSuccess}
+                            onLoadError={onDocumentLoadError}
+                            loading={
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Se încarcă PDF-ul...
+                              </div>
+                            }
+                            options={{
+                              cMapUrl: '/cmaps/',
+                              cMapPacked: true,
+                              standardFontDataUrl: '/standard_fonts/',
+                            }}
+                          >
+                            <Page
+                              pageNumber={currentPage}
+                              scale={scale}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={true}
+                            />
+                          </Document>
+                        )}
                       </div>
                       <div className="mt-4 flex justify-center flex-shrink-0">
                         <Button onClick={handleDownload} variant="outline" className="gap-2">
