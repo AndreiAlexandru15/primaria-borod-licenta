@@ -422,10 +422,16 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
       )}
 
       {/* Modaluri */}
-      <VizualizeazaInregistrareModal
+         <VizualizeazaInregistrareModal
         isOpen={viewModalOpen}
         onOpenChange={setViewModalOpen}
         inregistrare={selectedInregistrare}
+        departamentId={departmentId}  // ← ADAUGĂ ACEASTA
+        registruId={registerId}       // ← ADAUGĂ ACEASTA
+        onRefresh={() => {
+          queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId] })
+        }}
+        onDelete={(id) => deleteInregistrareMutation.mutate(id)}
       />
 
       <EditeazaInregistrareModal
