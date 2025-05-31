@@ -392,20 +392,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
 
   return (
     <div className="space-y-6 mt-6">
-      {/* Selector format export */}
-      <div className="flex items-center gap-2 mb-2">
-        <label htmlFor="export-format" className="text-sm font-medium">Format export:</label>
-        <select
-          id="export-format"
-          value={exportFormat}
-          onChange={e => setExportFormat(e.target.value)}
-          className="border rounded px-2 py-1 text-sm"
-        >
-          <option value="excel">Excel (.xlsx)</option>
-          <option value="csv">CSV (.csv)</option>
-          <option value="pdf">PDF (.pdf)</option>
-        </select>
-      </div>
+     
       {/* DataTable pentru înregistrări */}
       {tableData.length === 0 ? (
         <Card>
