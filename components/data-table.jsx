@@ -9,7 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, ArrowUp, ArrowDown } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -34,6 +34,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+
+// Componentă pentru header-ul sortabil
+const SortableHeader = ({ column, children }) => {
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      className="h-8 px-2 lg:px-3 hover:bg-muted/50"
+    >
+      {children}
+      {column.getIsSorted() === "asc" ? (
+        <ArrowUp className="ml-2 h-4 w-4" />
+      ) : column.getIsSorted() === "desc" ? (
+        <ArrowDown className="ml-2 h-4 w-4" />
+      ) : (
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      )}
+    </Button>
+  )
+}
 
 export function DataTable({
   columns,
@@ -227,3 +247,6 @@ export function DataTable({
     </div>
   )
 }
+
+// Export componentă SortableHeader pentru folosire în coloane
+export { SortableHeader }

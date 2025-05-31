@@ -32,7 +32,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DataTable } from "@/components/data-table"
+import { DataTable, SortableHeader } from "@/components/data-table"
+
 import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
 import { EditeazaInregistrareModal } from "@/components/editeaza-inregistrare-modal"
 import { VizualizeazaInregistrareModal } from "@/components/vizualizeaza-inregistrare-modal"
@@ -43,23 +44,60 @@ import axios from "axios"
 const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
   {
     accessorKey: "numarInregistrare",
-    header: "Nr. Înregistrare",
+    header: ({ column }) => (
+      <SortableHeader column={column}>
+        Nr. Înregistrare
+      </SortableHeader>
+    ),
     cell: ({ row }) => (
       <div className="flex items-center gap-2 font-medium">
         <Hash className="h-4 w-4 text-blue-600" />
         {row.original.numarInregistrare}
       </div>
     ),
+    sortingFn: (rowA, rowB, columnId) => {
+      const a = rowA.original.numarInregistrare
+      const b = rowB.original.numarInregistrare
+      
+      // Încearcă să convertești la număr
+      const numA = parseInt(a)
+      const numB = parseInt(b)
+      
+      // Dacă ambele sunt numere valide, compară numeric
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numA - numB
+      }
+      
+      // Altfel, compară ca string
+      if (a < b) return -1
+      if (a > b) return 1
+      return 0
+    },
   },
   {
     accessorKey: "dataInregistrare",
-    header: "Data Înregistrare",
+    header: ({ column }) => (
+      <SortableHeader column={column}>
+        Data Înregistrare
+      </SortableHeader>
+    ),
     cell: ({ row }) => (
       <div className="flex items-center gap-1 text-sm">
         <Calendar className="h-4 w-4 text-muted-foreground" />
         {formatDate(row.original.dataInregistrare)}
       </div>
     ),
+    sortingFn: (rowA, rowB, columnId) => {
+      const a = new Date(rowA.original.dataInregistrare)
+      const b = new Date(rowB.original.dataInregistrare)
+      
+      // Verifică dacă datele sunt valide
+      if (isNaN(a.getTime()) && isNaN(b.getTime())) return 0
+      if (isNaN(a.getTime())) return 1
+      if (isNaN(b.getTime())) return -1
+      
+      return a.getTime() - b.getTime()
+    },
   },
   {
     accessorKey: "numarDocument",
@@ -73,21 +111,44 @@ const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
   },
   {
     accessorKey: "dataFisier",
-    header: "Data Document",
+    header: ({ column }) => (
+      <SortableHeader column={column}>
+        Data Document
+      </SortableHeader>
+    ),
     cell: ({ row }) => (
       <div className="flex items-center gap-1 text-sm">
         <Calendar className="h-4 w-4 text-muted-foreground" />
         {row.original.dataFisier ? formatDate(row.original.dataFisier) : '-'}
       </div>
     ),
+    sortingFn: (rowA, rowB, columnId) => {
+      const a = rowA.original.dataFisier ? new Date(rowA.original.dataFisier) : null
+      const b = rowB.original.dataFisier ? new Date(rowB.original.dataFisier) : null
+      
+      // Pune valorile null la sfârșitul listei
+      if (!a && !b) return 0
+      if (!a) return 1
+      if (!b) return -1
+      
+      // Verifică dacă datele sunt valide
+      if (isNaN(a.getTime()) && isNaN(b.getTime())) return 0
+      if (isNaN(a.getTime())) return 1
+      if (isNaN(b.getTime())) return -1
+      
+      return a.getTime() - b.getTime()
+    },
   },
+  // ...restul coloanelor rămân la fel...
   {
     accessorKey: "expeditor",
     header: "Expeditor",
     cell: ({ row }) => (
       <div className="flex items-center gap-1">
         <User className="h-4 w-4 text-muted-foreground" />
-        {row.original.expeditor || '-'}
+        <span className="max-w-[150px] truncate">
+          {row.original.expeditor || '-'}
+        </span>
       </div>
     ),
   },
@@ -97,11 +158,11 @@ const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
     cell: ({ row }) => (
       <div className="flex items-center gap-1">
         <User className="h-4 w-4 text-muted-foreground" />
-        {row.original.destinatarNume ? (
-          <span>{row.original.destinatarNume}{row.original.destinatarFunctie ? ` (${row.original.destinatarFunctie})` : ''}</span>
-        ) : (
-          <span>-</span>
-        )}
+        <span className="max-w-[150px] truncate">
+          {row.original.destinatarNume ? (
+            `${row.original.destinatarNume}${row.original.destinatarFunctie ? ` (${row.original.destinatarFunctie})` : ''}`
+          ) : '-'}
+        </span>
       </div>
     ),
   },
@@ -109,7 +170,7 @@ const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
     accessorKey: "obiect",
     header: "Obiect",
     cell: ({ row }) => (
-      <div className="max-w-[300px]">
+      <div className="max-w-[200px]">
         <p className="truncate font-medium">{row.original.obiect}</p>
         {row.original.observatii && (
           <p className="text-xs text-muted-foreground truncate">
@@ -118,13 +179,16 @@ const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
         )}
       </div>
     ),
-  },  {
+  },
+  {
     accessorKey: "confidentialitate",
     header: "Confidențialitate",
     cell: ({ row }) => (
       <div className="flex items-center gap-1">
         <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-        {row.original.confidentialitateFisierDenumire || row.original.confidentialitate?.denumire || '-'}
+        <span className="max-w-[100px] truncate">
+          {row.original.confidentialitateFisierDenumire || row.original.confidentialitate?.denumire || '-'}
+        </span>
       </div>
     ),
   },
@@ -136,6 +200,7 @@ const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
   {
     id: "actions",
     header: "Acțiuni",
+    enableHiding: false,
     cell: ({ row }) => {
       const inregistrare = row.original
       
@@ -228,6 +293,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
     },
     enabled: !!departmentId,
   })
+  
   const getStatusBadge = (inregistrare) => {
     // Determină statusul bazat pe proprietățile înregistrării
     if (inregistrare.urgent && inregistrare.confidential) {
@@ -241,6 +307,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
     }
     return <Badge variant="outline">{inregistrare.status || 'Activa'}</Badge>
   }
+  
   const formatDate = (dateString) => {
     if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('ro-RO', {
@@ -264,7 +331,9 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
   const handleDelete = (inregistrare) => {
     setSelectedInregistrare(inregistrare)
     setDeleteModalOpen(true)
-  }  // Mutation pentru ștergerea înregistrării
+  }
+  
+  // Mutation pentru ștergerea înregistrării
   const deleteInregistrareMutation = useMutation({
     mutationFn: async (id) => {
       const response = await axios.delete(`/api/inregistrari/${id}`)
@@ -328,6 +397,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
       // Poți adăuga aici o notificare de eroare
     }
   }
+  
   // Expune funcția de export către componenta părinte
   useImperativeHandle(ref, () => ({ handleExport }))
   
@@ -371,6 +441,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
       </div>
     )
   }
+  
   if (errorInregistrari) {
     return (
       <Card>
@@ -392,7 +463,6 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
 
   return (
     <div className="space-y-6 mt-6">
-     
       {/* DataTable pentru înregistrări */}
       {tableData.length === 0 ? (
         <Card>
@@ -415,19 +485,25 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
               />
             </div>
           </CardContent>
-        </Card>      ) : (
+        </Card>
+      ) : (
         <div>
-          <DataTable data={tableData} columns={columns} />
+          <DataTable 
+            data={tableData} 
+            columns={columns}
+            searchKey="obiect"
+            searchPlaceholder="Caută în obiect..."
+          />
         </div>
       )}
 
       {/* Modaluri */}
-         <VizualizeazaInregistrareModal
+      <VizualizeazaInregistrareModal
         isOpen={viewModalOpen}
         onOpenChange={setViewModalOpen}
         inregistrare={selectedInregistrare}
-        departamentId={departmentId}  // ← ADAUGĂ ACEASTA
-        registruId={registerId}       // ← ADAUGĂ ACEASTA
+        departamentId={departmentId}
+        registruId={registerId}
         onRefresh={() => {
           queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId] })
         }}
@@ -439,8 +515,8 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
         onOpenChange={setEditModalOpen}
         inregistrare={selectedInregistrare}
         departamentId={departmentId}
-        registruId={registerId}        onSuccess={() => {
-          // Invalidate exact query key used by this component
+        registruId={registerId}
+        onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId] })
           setEditModalOpen(false)
           setSelectedInregistrare(null)
@@ -458,4 +534,3 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
     </div>
   )
 })
-
