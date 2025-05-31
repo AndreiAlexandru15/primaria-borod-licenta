@@ -45,11 +45,20 @@ import {
   Edit,
   Trash2,
   EllipsisVertical,
-  Plus
+  Plus,
+  Upload
 } from "lucide-react";
 
+// Import componentele pentru vizualizare și upload
+import { VizualizeazaDocumentModal } from './vizualizeaza-document-modal';
+import { FileUploadModal } from './file-upload-modal';
+
 export function ListaDocumente() {
-  const { data, isLoading, error } = useQuery({
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["fisiere"],
     queryFn: async () => {
       const response = await axios.get("/api/fisiere");
@@ -60,7 +69,7 @@ export function ListaDocumente() {
   });
 
   const [filter, setFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("neinregistrate"); // schimbat din "toate" în "neinregistrate"
+  const [statusFilter, setStatusFilter] = useState("neinregistrate");
 
   const filteredData = useMemo(() => {
     if (!data) return [];
@@ -139,8 +148,8 @@ export function ListaDocumente() {
   };
 
   const handleView = (doc) => {
-    // TODO: Implementează vizualizarea documentului
-    console.log("Vizualizare document:", doc);
+    setSelectedDocument(doc);
+    setShowViewModal(true);
   };
 
   const handleEdit = (doc) => {
@@ -148,14 +157,26 @@ export function ListaDocumente() {
     console.log("Editare document:", doc);
   };
 
-  const handleDelete = (doc) => {
-    // TODO: Implementează ștergerea documentului
-    console.log("Ștergere document:", doc);
+  const handleDelete = async (docId) => {
+    try {
+      // TODO: Implementează API-ul pentru ștergere
+      const response = await axios.delete(`/api/fisiere/${docId}`);
+      if (response.data.success) {
+        refetch(); // Refresh lista după ștergere
+      }
+    } catch (error) {
+      console.error("Eroare la ștergerea documentului:", error);
+      throw error;
+    }
   };
 
   const handleRegister = (doc) => {
-    // TODO: Implementează înregistrarea documentului
+    // TODO: Implementează înregistrarea documentului (navigare la formularul de înregistrare)
     console.log("Înregistrare document:", doc);
+  };
+
+  const handleUploadComplete = () => {
+    refetch(); // Refresh lista după upload
   };
 
   if (isLoading) {
@@ -167,7 +188,10 @@ export function ListaDocumente() {
             <Skeleton className="h-5 w-5" />
             <Skeleton className="h-6 w-24" />
           </div>
-          <Skeleton className="h-6 w-16" />
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-6 w-16" />
+            <Skeleton className="h-10 w-32" />
+          </div>
         </div>
         
         {/* Filters skeleton */}
@@ -200,15 +224,24 @@ export function ListaDocumente() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header cu buton de upload */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
           <h2 className="text-2xl font-semibold tracking-tight">Documente</h2>
         </div>
-        <Badge variant="secondary">
-          {filteredData.length} {filteredData.length === 1 ? 'document' : 'documente'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary">
+            {filteredData.length} {filteredData.length === 1 ? 'document' : 'documente'}
+          </Badge>
+          <Button 
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            Upload documente
+          </Button>
+        </div>
       </div>
 
       {/* Filtere */}
@@ -448,6 +481,24 @@ export function ListaDocumente() {
           </div>
         </>
       )}
+
+      {/* Modal de vizualizare document */}
+      <VizualizeazaDocumentModal
+        document={selectedDocument}
+        isOpen={showViewModal}
+        onOpenChange={setShowViewModal}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onRegister={handleRegister}
+        onRefresh={refetch}
+      />
+
+      {/* Modal de upload fișiere */}
+      <FileUploadModal
+        isOpen={showUploadModal}
+        onOpenChange={setShowUploadModal}
+        onUploadComplete={handleUploadComplete}
+      />
     </div>
   );
 }
