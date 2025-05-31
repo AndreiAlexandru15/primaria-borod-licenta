@@ -30,7 +30,7 @@ import {
 import { PDFViewerContainer } from './pdf-viewer';
 
 const VizualizeazaDocumentModal = ({ 
-  document, 
+  document: documentProp, 
   children, 
   isOpen, 
   onOpenChange, 
@@ -40,42 +40,55 @@ const VizualizeazaDocumentModal = ({
   onRefresh
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  // Construiește URL-ul pentru document
+  const getDocumentUrl = () => {
+    if (documentProp?.caleRelativa && documentProp?.numeFisierDisk) {
+      return `/api/files/${documentProp.caleRelativa}/${documentProp.numeFisierDisk}`;
+    }
+    return null;
+  };
 
+  const getDownloadUrl = () => {
+    const baseUrl = getDocumentUrl();
+    return baseUrl ? `${baseUrl}?download=true` : null;
+  };
   const handleDownload = () => {
-    if (document?.url) {
-      const link = document.createElement('a');
-      link.href = document.url;
-      link.download = document.numeOriginal || 'document';
-      document.body.appendChild(link);
+    const downloadUrl = getDownloadUrl();
+    if (downloadUrl) {
+      // Use window.document to avoid conflict with the document prop
+      const link = window.document.createElement('a');
+      link.href = downloadUrl;
+      link.download = documentProp.numeOriginal || 'document';
+      link.setAttribute('download', documentProp.numeOriginal || 'document');
+      window.document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      window.document.body.removeChild(link);
     }
   };
 
   const handleViewDocument = () => {
-    if (document?.url) {
-      window.open(document.url, '_blank');
+    const documentUrl = getDocumentUrl();
+    if (documentUrl) {
+      window.open(documentUrl, '_blank');
     }
   };
-
   const handleEdit = () => {
     if (onEdit) {
-      onEdit(document);
+      onEdit(documentProp);
     }
   };
 
   const handleRegister = () => {
     if (onRegister) {
-      onRegister(document);
+      onRegister(documentProp);
     }
   };
 
   const handleDelete = async () => {
-    if (!onDelete || !document?.id) return;
-    
-    setIsDeleting(true);
+    if (!onDelete || !documentProp?.id) return;
+      setIsDeleting(true);
     try {
-      await onDelete(document.id);
+      await onDelete(documentProp.id);
       onRefresh?.();
       onOpenChange?.(false);
     } catch (error) {
@@ -128,19 +141,17 @@ const VizualizeazaDocumentModal = ({
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-1 min-h-0">
-            {/* Partea stângă - Document Preview (70% width) */}
-            <div className="w-[70%] border-r">
+          <div className="flex flex-1 min-h-0">            {/* Partea stângă - Document Preview (70% width) */}            <div className="w-[70%] border-r">
               <PDFViewerContainer
                 document={{
-                  url: document?.url,
-                  name: document?.numeOriginal,
-                  type: document?.tipFisier
+                  url: getDocumentUrl(),
+                  name: documentProp?.numeOriginal,
+                  type: documentProp?.tipMime || `application/${documentProp?.extensie}`
                 }}
                 title="Document"
                 showActions={true}
-                onDownload={document?.url ? handleDownload : null}
-                onOpenInNewTab={document?.url ? handleViewDocument : null}
+                onDownload={getDocumentUrl() ? handleDownload : null}
+                onOpenInNewTab={getDocumentUrl() ? handleViewDocument : null}
                 className="h-full"
               />
             </div>
@@ -161,10 +172,9 @@ const VizualizeazaDocumentModal = ({
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm">Informații Generale</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
+                    <CardContent className="space-y-3">                      <div>
                         <p className="text-sm font-medium">Nume document</p>
-                        <p className="text-sm text-gray-600 break-words">{document?.numeOriginal || 'N/A'}</p>
+                        <p className="text-sm text-gray-600 break-words">{documentProp?.numeOriginal || 'N/A'}</p>
                       </div>
 
                       <Separator />
@@ -173,7 +183,7 @@ const VizualizeazaDocumentModal = ({
                         <Calendar className="h-4 w-4 text-gray-500" />
                         <div>
                           <p className="text-sm font-medium">Data fișier</p>
-                          <p className="text-sm text-gray-600">{formatDate(document?.dataFisier)}</p>
+                          <p className="text-sm text-gray-600">{formatDate(documentProp?.dataFisier)}</p>
                         </div>
                       </div>
 
@@ -183,28 +193,28 @@ const VizualizeazaDocumentModal = ({
                         <Calendar className="h-4 w-4 text-gray-500" />
                         <div>
                           <p className="text-sm font-medium">Data încărcare</p>
-                          <p className="text-sm text-gray-600">{formatDate(document?.createdAt)}</p>
+                          <p className="text-sm text-gray-600">{formatDate(documentProp?.createdAt)}</p>
                         </div>
                       </div>
 
-                      {document?.extensie && (
+                      {documentProp?.extensie && (
                         <>
                           <Separator />
                           <div>
                             <p className="text-sm font-medium">Tip fișier</p>
                             <Badge variant="outline" className="mt-1">
-                              {document.extensie.toUpperCase()}
+                              {documentProp.extensie.toUpperCase()}
                             </Badge>
                           </div>
                         </>
                       )}
 
-                      {document?.marime && (
+                      {documentProp?.marime && (
                         <>
                           <Separator />
                           <div>
                             <p className="text-sm font-medium">Mărime fișier</p>
-                            <p className="text-sm text-gray-600">{formatFileSize(document.marime)}</p>
+                            <p className="text-sm text-gray-600">{formatFileSize(documentProp.marime)}</p>
                           </div>
                         </>
                       )}
@@ -218,10 +228,9 @@ const VizualizeazaDocumentModal = ({
                         <FolderOpen className="h-4 w-4" />
                         Categorie
                       </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {document?.categorie?.nume ? (
-                        <Badge variant="outline">{document.categorie.nume}</Badge>
+                    </CardHeader>                    <CardContent>
+                      {documentProp?.categorie?.nume ? (
+                        <Badge variant="outline">{documentProp.categorie.nume}</Badge>
                       ) : (
                         <span className="text-sm text-gray-600">Fără categorie</span>
                       )}
@@ -237,28 +246,28 @@ const VizualizeazaDocumentModal = ({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {document?.inregistrareId ? (
+                      {documentProp?.inregistrareId ? (
                         <>
                           <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
                             ✓ Înregistrat
                           </Badge>
-                          {document?.inregistrare?.numarInregistrare && (
+                          {documentProp?.inregistrare?.numarInregistrare && (
                             <>
                               <Separator />
                               <div>
                                 <p className="text-sm font-medium">Număr înregistrare</p>
                                 <Badge variant="secondary" className="font-mono mt-1">
-                                  {document.inregistrare.numarInregistrare}
+                                  {documentProp.inregistrare.numarInregistrare}
                                 </Badge>
                               </div>
                             </>
                           )}
-                          {document?.inregistrare?.dataInregistrare && (
+                          {documentProp?.inregistrare?.dataInregistrare && (
                             <>
                               <Separator />
                               <div>
                                 <p className="text-sm font-medium">Data înregistrare</p>
-                                <p className="text-sm text-gray-600">{formatDate(document.inregistrare.dataInregistrare)}</p>
+                                <p className="text-sm text-gray-600">{formatDate(documentProp.inregistrare.dataInregistrare)}</p>
                               </div>
                             </>
                           )}
@@ -272,14 +281,14 @@ const VizualizeazaDocumentModal = ({
                   </Card>
 
                   {/* Descriere/Note */}
-                  {document?.descriere && (
+                  {documentProp?.descriere && (
                     <Card>
                       <CardHeader className="pb-3">
                         <CardTitle className="text-sm">Descriere</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-gray-600 whitespace-pre-wrap">
-                          {document.descriere}
+                          {documentProp.descriere}
                         </p>
                       </CardContent>
                     </Card>
@@ -296,10 +305,9 @@ const VizualizeazaDocumentModal = ({
                 <X className="h-4 w-4 mr-2" />
                 Închide
               </Button>
-            </div>
-            <div className="flex gap-2">
+            </div>            <div className="flex gap-2">
               {/* Buton pentru înregistrare (doar pentru documente neînregistrate) */}
-              {!document?.inregistrareId && onRegister && (
+              {!documentProp?.inregistrareId && onRegister && (
                 <Button variant="default" onClick={handleRegister}>
                   <Plus className="h-4 w-4 mr-2" />
                   Înregistrează
@@ -317,10 +325,10 @@ const VizualizeazaDocumentModal = ({
                 <Button 
                   variant="destructive" 
                   onClick={handleDelete}
-                  disabled={!!document?.inregistrareId || isDeleting}
+                  disabled={!!documentProp?.inregistrareId || isDeleting}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  {isDeleting ? 'Se șterge...' : (document?.inregistrareId ? 'Nu se poate șterge' : 'Șterge')}
+                  {isDeleting ? 'Se șterge...' : (documentProp?.inregistrareId ? 'Nu se poate șterge' : 'Șterge')}
                 </Button>
               )}
             </div>
