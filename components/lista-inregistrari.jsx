@@ -521,11 +521,9 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
           setEditModalOpen(false)
           setSelectedInregistrare(null)
         }}
-      />
-
-      <ConfirmDeleteModal
+      />      <ConfirmDeleteModal
         isOpen={deleteModalOpen}
-        onOpenChange={setDeleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
         title="Șterge înregistrarea"
         description={`Ești sigur că vrei să ștergi înregistrarea #${selectedInregistrare?.numarInregistrare}? Această acțiune nu poate fi anulată.`}
         onConfirm={confirmDelete}
