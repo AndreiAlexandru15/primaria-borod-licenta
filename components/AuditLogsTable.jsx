@@ -4,67 +4,40 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, Search, Filter, ChevronLeft, ChevronRight } from "lucide-react"
+import { Eye, Search, Filter, ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 import { Loader2 } from "lucide-react"
+import { useAuditLogs, AUDIT_ACTIONS, ENTITY_TYPES } from "@/hooks/use-audit-logs"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
+import { ro } from "date-fns/locale"
 
 export default function AuditLogsTable() {
   const [page, setPage] = useState(1)
   const [filters, setFilters] = useState({
-    actiune: "",
-    utilizator: "",
-    search: ""
+    action: "",
+    userId: "",
+    entityType: "",
+    search: "",
+    startDate: "",
+    endDate: ""
   })
 
-  // Mock data pentru now - va fi înlocuit cu hook-ul real
-  const [data, setData] = useState({
-    data: [
-      {
-        id: "1",
-        utilizator: { nume: "Popescu", prenume: "Ion", email: "ion.popescu@primarie.ro" },
-        actiune: "CREATE_USER",
-        detalii: { resource: "Utilizator", resourceId: "user123" },
-        ipAddress: "192.168.1.100",
-        userAgent: "Mozilla/5.0...",
-        createdAt: "2025-06-01T10:30:00.000Z"
-      },
-      {
-        id: "2",
-        utilizator: { nume: "Ionescu", prenume: "Maria", email: "maria.ionescu@primarie.ro" },
-        actiune: "DELETE_DOCUMENT",
-        detalii: { resource: "Document", resourceId: "doc123" },
-        ipAddress: "192.168.1.101",
-        userAgent: "Mozilla/5.0...",
-        createdAt: "2025-06-01T09:15:00.000Z"
-      },
-      {
-        id: "3",
-        utilizator: { nume: "Georgescu", prenume: "Alexandru", email: "alex.georgescu@primarie.ro" },
-        actiune: "UPDATE_ROLE",
-        detalii: { resource: "Rol", resourceId: "role456" },
-        ipAddress: "192.168.1.102",
-        userAgent: "Mozilla/5.0...",
-        createdAt: "2025-05-31T16:45:00.000Z"
-      }
-    ],
-    pagination: {
-      total: 150,
-      page: 1,
-      limit: 10,
-      totalPages: 15
-    }
+  // Folosește hook-ul real pentru audit logs
+  const { data, isLoading, error } = useAuditLogs({
+    ...filters,
+    page,
+    limit: 10
   })
-
-  const isLoading = false
-  const error = null
-
-  const auditLogs = data?.data || []
+  const auditLogs = data?.logs || []
   const pagination = data?.pagination || {}
 
   const getActionBadgeVariant = (actiune) => {
-    if (actiune.includes('CREATE')) return 'default'
-    if (actiune.includes('UPDATE')) return 'secondary' 
-    if (actiune.includes('DELETE')) return 'destructive'
-    if (actiune.includes('VIEW') || actiune.includes('READ')) return 'outline'
+    if (actiune?.includes('CREATE')) return 'default'
+    if (actiune?.includes('UPDATE')) return 'secondary' 
+    if (actiune?.includes('DELETE')) return 'destructive'
+    if (actiune?.includes('VIEW') || actiune?.includes('LOGIN')) return 'outline'
     return 'outline'
   }
 
@@ -84,87 +57,172 @@ export default function AuditLogsTable() {
     return `${utilizator.nume} ${utilizator.prenume}`
   }
 
-  const getResourceFromDetails = (detalii) => {
-    if (!detalii) return 'N/A'
-    return detalii.resource || 'Necunoscut'
+  const getEntityDisplayName = (log) => {
+    if (log.fisierId) return `FISIER (${log.fisierId})`
+    if (log.inregistrareId) return `INREGISTRARE (${log.inregistrareId})`
+    return 'SISTEM'
   }
-
   const handleViewDetails = (log) => {
     // TODO: Implementează modal pentru detalii complete
     console.log('View details for:', log)
   }
 
-  const filteredLogs = auditLogs.filter(log => {
-    if (filters.actiune && !log.actiune.toLowerCase().includes(filters.actiune.toLowerCase())) {
-      return false
-    }
-    if (filters.utilizator && log.utilizator && 
-        !getUserDisplayName(log.utilizator).toLowerCase().includes(filters.utilizator.toLowerCase())) {
-      return false
-    }
-    if (filters.search) {
-      const searchTerm = filters.search.toLowerCase()
-      return (
-        log.actiune.toLowerCase().includes(searchTerm) ||
-        getUserDisplayName(log.utilizator).toLowerCase().includes(searchTerm) ||
-        getResourceFromDetails(log.detalii).toLowerCase().includes(searchTerm) ||
-        (log.ipAddress && log.ipAddress.includes(searchTerm))
-      )
-    }
-    return true
-  })
+  const handleDateSelect = (date, type) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: date ? date.toISOString().split('T')[0] : ""
+    }))
+  }
 
+  const clearFilters = () => {
+    setFilters({
+      action: "",
+      userId: "",
+      entityType: "",
+      search: "",
+      startDate: "",
+      endDate: ""
+    })
+    setPage(1)
+  }
   if (error) {
     return (
       <div className="text-center py-4 text-red-500">
-        Eroare la încărcarea jurnalului de audit
+        Eroare la încărcarea jurnalului de audit: {error.message}
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex gap-4 items-center flex-wrap">
-        <div className="flex-1 min-w-[200px]">
+      {/* Advanced Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+        {/* Search */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Căutare</label>
           <Input
             placeholder="Caută în jurnal..."
             value={filters.search}
             onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-            className="max-w-sm"
           />
+        </div>        {/* Action Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Acțiune</label>
+          <Select
+            value={filters.action || "all"}
+            onValueChange={(value) => setFilters(prev => ({ ...prev, action: value === "all" ? "" : value }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Toate acțiunile" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toate acțiunile</SelectItem>
+              {Object.values(AUDIT_ACTIONS).map(action => (
+                <SelectItem key={action} value={action}>{action}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>        {/* Entity Type Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Tip entitate</label>
+          <Select
+            value={filters.entityType || "all"}
+            onValueChange={(value) => setFilters(prev => ({ ...prev, entityType: value === "all" ? "" : value }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Toate tipurile" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toate tipurile</SelectItem>
+              {Object.values(ENTITY_TYPES).map(type => (
+                <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select
-          value={filters.actiune}
-          onValueChange={(value) => setFilters(prev => ({ ...prev, actiune: value }))}
+
+        {/* Clear Filters */}
+        <Button 
+          variant="outline" 
+          onClick={clearFilters}
+          className="w-full"
         >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrează acțiunea" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">Toate acțiunile</SelectItem>
-            <SelectItem value="CREATE">CREATE</SelectItem>
-            <SelectItem value="UPDATE">UPDATE</SelectItem>
-            <SelectItem value="DELETE">DELETE</SelectItem>
-            <SelectItem value="VIEW">VIEW</SelectItem>
-            <SelectItem value="LOGIN">LOGIN</SelectItem>
-            <SelectItem value="LOGOUT">LOGOUT</SelectItem>
-          </SelectContent>
-        </Select>
-        <Input
-          placeholder="Filtrează utilizator..."
-          value={filters.utilizator}
-          onChange={(e) => setFilters(prev => ({ ...prev, utilizator: e.target.value }))}
-          className="w-[200px]"
-        />
+          <Filter className="h-4 w-4 mr-2" />
+          Resetează filtrele
+        </Button>
+      </div>
+
+      {/* Date Range Filters */}
+      <div className="flex gap-4 items-center flex-wrap">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Data început</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !filters.startDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {filters.startDate ? (
+                  format(new Date(filters.startDate), "PPP", { locale: ro })
+                ) : (
+                  "Selectează data"
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={filters.startDate ? new Date(filters.startDate) : undefined}
+                onSelect={(date) => handleDateSelect(date, 'startDate')}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Data sfârșit</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-[240px] justify-start text-left font-normal",
+                  !filters.endDate && "text-muted-foreground"
+                )}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                {filters.endDate ? (
+                  format(new Date(filters.endDate), "PPP", { locale: ro })
+                ) : (
+                  "Selectează data"
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={filters.endDate ? new Date(filters.endDate) : undefined}
+                onSelect={(date) => handleDateSelect(date, 'endDate')}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {/* Results info */}
       <div className="text-sm text-muted-foreground">
-        Afișez {filteredLogs.length} din {auditLogs.length} înregistrări
-      </div>
-
-      {/* Table */}
+        {isLoading ? (
+          "Se încarcă..."
+        ) : (
+          `Afișez ${auditLogs.length} din ${pagination.total || 0} înregistrări`
+        )}
+      </div>      {/* Table */}
       <div className="border rounded-md">
         <Table>
           <TableHeader>
@@ -176,22 +234,21 @@ export default function AuditLogsTable() {
               <TableHead>IP Address</TableHead>
               <TableHead>Acțiuni</TableHead>
             </TableRow>
-          </TableHeader>
-          <TableBody>
+          </TableHeader>          <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-4">
                   <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                 </TableCell>
               </TableRow>
-            ) : filteredLogs.length === 0 ? (
+            ) : auditLogs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
                   Nu sunt înregistrări în jurnal
                 </TableCell>
               </TableRow>
             ) : (
-              filteredLogs.map((log) => (
+              auditLogs.map((log) => (
                 <TableRow key={log.id}>
                   <TableCell className="font-medium">
                     <div>
@@ -210,10 +267,10 @@ export default function AuditLogsTable() {
                   </TableCell>
                   <TableCell>
                     <div>
-                      <div>{getResourceFromDetails(log.detalii)}</div>
-                      {log.detalii?.resourceId && (
+                      <div>{getEntityDisplayName(log)}</div>
+                      {log.detalii && (
                         <div className="text-xs text-muted-foreground">
-                          ID: {log.detalii.resourceId}
+                          {typeof log.detalii === 'string' ? log.detalii : JSON.stringify(log.detalii)}
                         </div>
                       )}
                     </div>
@@ -239,8 +296,7 @@ export default function AuditLogsTable() {
                   </TableCell>
                 </TableRow>
               ))
-            )}
-          </TableBody>
+            )}          </TableBody>
         </Table>
       </div>
 
@@ -248,26 +304,26 @@ export default function AuditLogsTable() {
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Afișez {((page - 1) * 10) + 1}-{Math.min(page * 10, pagination.total)} din {pagination.total} înregistrări
+            Afișez {((page - 1) * (pagination.limit || 10)) + 1}-{Math.min(page * (pagination.limit || 10), pagination.total || 0)} din {pagination.total || 0} înregistrări
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setPage(prev => Math.max(1, prev - 1))}
-              disabled={page === 1}
+              disabled={page === 1 || isLoading}
             >
               <ChevronLeft className="h-4 w-4" />
               Anterior
             </Button>
             <span className="text-sm">
-              Pagina {page} din {pagination.totalPages}
+              Pagina {page} din {pagination.totalPages || 1}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage(prev => Math.min(pagination.totalPages, prev + 1))}
-              disabled={page === pagination.totalPages}
+              onClick={() => setPage(prev => Math.min(pagination.totalPages || 1, prev + 1))}
+              disabled={page === pagination.totalPages || isLoading}
             >
               Următorul
               <ChevronRight className="h-4 w-4" />

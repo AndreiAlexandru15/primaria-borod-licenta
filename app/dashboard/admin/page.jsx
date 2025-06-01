@@ -17,6 +17,7 @@ import RolesTable from "@/components/RolesTable"
 import PermissionsTable from "@/components/PermissionsTable"
 import TipuriDocumenteTable from "@/components/TipuriDocumenteTable"
 import CategoriiDocumenteTable from "@/components/CategoriiDocumenteTable"
+import AuditLogsTable from "@/components/AuditLogsTable"
 import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/use-users"
 import { useDepartments } from "@/hooks/use-departments"
 import { Badge } from "@/components/ui/badge"
@@ -432,18 +433,6 @@ export default function AdminPage() {
     }
   }
   
-  const roles = [
-    { id: 1, name: "Admin", description: "Acces complet la sistem", permissions: 15, users: 2 },
-    { id: 2, name: "Manager", description: "Gestionare documente și utilizatori", permissions: 8, users: 5 },
-    { id: 3, name: "User", description: "Acces de bază la documente", permissions: 3, users: 25 }
-  ]
-
-  const auditLogs = [
-    { id: 1, user: "John Doe", action: "CREATE_USER", resource: "User", timestamp: "2025-06-01 10:30", ip: "192.168.1.100" },
-    { id: 2, user: "Jane Smith", action: "DELETE_DOCUMENT", resource: "Document #123", timestamp: "2025-06-01 09:15", ip: "192.168.1.101" },
-    { id: 3, user: "Bob Wilson", action: "UPDATE_ROLE", resource: "Role Manager", timestamp: "2025-05-31 16:45", ip: "192.168.1.102" }
-  ]
-
   const backups = [
     { id: 1, name: "backup_2025_06_01.sql", size: "2.5 GB", created: "2025-06-01 02:00", type: "Automatic", status: "Completed" },
     { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },
@@ -676,39 +665,10 @@ export default function AdminPage() {
                 <ClipboardList className="h-5 w-5" />
                 Jurnal de Audit
               </CardTitle>
-              <CardDescription>Monitorizează activitățile utilizatorilor</CardDescription>
+              <CardDescription>Monitorizează activitățile utilizatorilor în sistem</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Utilizator</TableHead>
-                    <TableHead>Acțiune</TableHead>
-                    <TableHead>Resursă</TableHead>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>IP</TableHead>
-                    <TableHead>Acțiuni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-medium">{log.user}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{log.action}</Badge>
-                      </TableCell>
-                      <TableCell>{log.resource}</TableCell>
-                      <TableCell>{log.timestamp}</TableCell>
-                      <TableCell>{log.ip}</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <AuditLogsTable />
             </CardContent>
           </Card>
         </TabsContent>
