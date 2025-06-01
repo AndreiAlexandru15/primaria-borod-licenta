@@ -8,24 +8,27 @@ function serializeBigInt(obj) {
   ))
 }
 
-// GET - Listează tipurile de documente pentru un registru
+// GET - Listează tipurile de documente pentru un registru sau toate tipurile
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const registruId = searchParams.get('registruId')
+    const toate = searchParams.get('toate') // Pentru admin - obține toate tipurile
 
-    if (!registruId) {
-      return NextResponse.json(
-        { success: false, error: 'ID-ul registrului este obligatoriu' },
-        { status: 400 }
-      )
+    // Construiește condiția where
+    let whereCondition = {}
+    
+    if (registruId) {
+      whereCondition.registruId = registruId
+    }
+    
+    // Pentru admin, nu filtram după activ dacă este cerut explicit
+    if (!toate) {
+      whereCondition.activ = true
     }
 
     const tipuriDocumente = await prisma.tipDocument.findMany({
-      where: { 
-        registruId,
-        activ: true 
-      },
+      where: whereCondition,
       include: {
         registru: {
           select: {
@@ -46,11 +49,14 @@ export async function GET(request) {
       },
       orderBy: [
         { ordineSortare: 'asc' },
-        { nume: 'asc' }
-      ]
+        { nume: 'asc' }      ]
     })
 
-    console.log('Tipuri documente găsite pentru registruId', registruId, ':', JSON.stringify(tipuriDocumente, null, 2))
+    console.log('Tipuri documente găsite:', JSON.stringify({
+      registruId: registruId || 'toate',
+      count: tipuriDocumente.length,
+      tipuri: tipuriDocumente.map(t => ({ id: t.id, nume: t.nume, cod: t.cod }))
+    }, null, 2))
 
     return NextResponse.json(serializeBigInt({
       success: true,
@@ -161,8 +167,7 @@ export async function POST(request) {
             nume: true,
             cod: true,
             descriere: true,
-            perioadaRetentie: true,
-            culoare: true
+            perioadaRetentie: true
           }
         }
       }

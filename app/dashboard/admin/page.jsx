@@ -7,8 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Download, Plus, Users, Shield, Key, FileText, FolderOpen, ClipboardList, Database, Upload, Edit, Trash2, Eye, Loader2, Search } from "lucide-react"
 import AddUserDialog from "@/components/AddUserDialog"
 import AddRoleDialog from "@/components/adauga-rol-modal"
+import AddPermissionDialog from "@/components/adauga-permisiune-modal"
+import AdaugaTipDocumentModal from "@/components/adauga-tip-document-modal"
+import EditeazaTipDocumentModal from "@/components/editeaza-tip-document-modal"
 import UsersTable from "@/components/UsersTable"
 import RolesTable from "@/components/RolesTable"
+import PermissionsTable from "@/components/PermissionsTable"
+import TipuriDocumenteTable from "@/components/TipuriDocumenteTable"
 import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/use-users"
 import { useDepartments } from "@/hooks/use-departments"
 import { Badge } from "@/components/ui/badge"
@@ -19,11 +24,14 @@ import axios from "axios"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-export default function AdminPage() {
-  const [searchTerm, setSearchTerm] = useState("")
+export default function AdminPage() {  const [searchTerm, setSearchTerm] = useState("")
   const [selectedTab, setSelectedTab] = useState("users")
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false)
   const [isCreateRoleDialogOpen, setIsCreateRoleDialogOpen] = useState(false)
+  const [isCreatePermissionDialogOpen, setIsCreatePermissionDialogOpen] = useState(false)
+  const [isCreateTipDocumentDialogOpen, setIsCreateTipDocumentDialogOpen] = useState(false)
+  const [isEditTipDocumentDialogOpen, setIsEditTipDocumentDialogOpen] = useState(false)
+  const [editingTipDocument, setEditingTipDocument] = useState(null)
   const [newUserData, setNewUserData] = useState({
     nume: "",
     prenume: "",
@@ -54,7 +62,6 @@ export default function AdminPage() {
       return res.data.data || []
     }
   })
-
   // Mutation pentru crearea rolurilor
   const createRoleMutation = useMutation({
     mutationFn: async (roleData) => {
@@ -69,6 +76,156 @@ export default function AdminPage() {
     onError: (error) => {
       console.error("Error creating role:", error)
       toast.error(error.response?.data?.message || "Eroare la crearea rolului")
+    }
+  })
+
+  // Query pentru permisiuni
+  const {
+    data: permissionsData = [],
+    isLoading: isLoadingPermissions,
+    error: permissionsError
+  } = useQuery({
+    queryKey: ["permissions"],
+    queryFn: async () => {
+      const res = await axios.get("/api/permisiuni")
+      return res.data.data || []
+    }
+  })
+
+  // Mutation pentru crearea permisiunilor
+  const createPermissionMutation = useMutation({
+    mutationFn: async (permissionData) => {
+      const response = await axios.post("/api/permisiuni", permissionData)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["permissions"] })
+      toast.success("Permisiunea a fost creată cu succes!")
+      setIsCreatePermissionDialogOpen(false)
+    },
+    onError: (error) => {
+      console.error("Error creating permission:", error)
+      toast.error(error.response?.data?.message || "Eroare la crearea permisiunii")
+    }
+  })
+
+  // Mutation pentru actualizarea permisiunilor
+  const updatePermissionMutation = useMutation({
+    mutationFn: async ({ id, data }) => {
+      const response = await axios.put("/api/permisiuni", { id, ...data })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["permissions"] })
+      toast.success("Permisiunea a fost actualizată cu succes!")
+    },
+    onError: (error) => {
+      console.error("Error updating permission:", error)
+      toast.error(error.response?.data?.message || "Eroare la actualizarea permisiunii")
+    }
+  })
+  // Mutation pentru ștergerea permisiunilor
+  const deletePermissionMutation = useMutation({
+    mutationFn: async (permissionId) => {
+      const response = await axios.delete("/api/permisiuni", {
+        data: { id: permissionId }
+      })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["permissions"] })
+      toast.success("Permisiunea a fost ștearsă cu succes!")
+    },
+    onError: (error) => {
+      console.error("Error deleting permission:", error)
+      toast.error(error.response?.data?.message || "Eroare la ștergerea permisiunii")
+    }
+  })
+  // Query pentru registre (necesare pentru tipuri documente)
+  const {
+    data: registreData = [],
+    isLoading: isLoadingRegistre
+  } = useQuery({
+    queryKey: ["registre"],
+    queryFn: async () => {
+      const res = await axios.get("/api/registru?toate=true")
+      return res.data.data || []
+    }
+  })
+
+  // Query pentru categorii documente 
+  const {
+    data: categoriiData = [],
+    isLoading: isLoadingCategorii
+  } = useQuery({
+    queryKey: ["categorii-document"],
+    queryFn: async () => {
+      const res = await axios.get("/api/categorii-document")
+      return res.data.data || []
+    }
+  })
+  // Query pentru tipuri documente
+  const {
+    data: tipuriDocumenteData = [],
+    isLoading: isLoadingTipuriDocumente,
+    error: tipuriDocumenteError
+  } = useQuery({
+    queryKey: ["tipuri-documente"],
+    queryFn: async () => {
+      const res = await axios.get("/api/tipuri-documente?toate=true")
+      return res.data.data || []
+    }
+  })
+
+  // Mutation pentru crearea tipurilor de documente
+  const createTipDocumentMutation = useMutation({
+    mutationFn: async (tipDocumentData) => {
+      const response = await axios.post("/api/tipuri-documente", tipDocumentData)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tipuri-documente"] })
+      toast.success("Tipul de document a fost creat cu succes!")
+      setIsCreateTipDocumentDialogOpen(false)
+    },
+    onError: (error) => {
+      console.error("Error creating tip document:", error)
+      toast.error(error.response?.data?.error || "Eroare la crearea tipului de document")
+    }
+  })
+
+  // Mutation pentru actualizarea tipurilor de documente
+  const updateTipDocumentMutation = useMutation({
+    mutationFn: async (tipDocumentData) => {
+      const { id, ...updateData } = tipDocumentData
+      const response = await axios.put("/api/tipuri-documente", { id, ...updateData })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tipuri-documente"] })
+      toast.success("Tipul de document a fost actualizat cu succes!")
+      setIsEditTipDocumentDialogOpen(false)
+      setEditingTipDocument(null)
+    },
+    onError: (error) => {
+      console.error("Error updating tip document:", error)
+      toast.error(error.response?.data?.error || "Eroare la actualizarea tipului de document")
+    }
+  })
+
+  // Mutation pentru ștergerea tipurilor de documente
+  const deleteTipDocumentMutation = useMutation({
+    mutationFn: async (tipDocumentId) => {
+      const response = await axios.delete(`/api/tipuri-documente/${tipDocumentId}`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tipuri-documente"] })
+      toast.success("Tipul de document a fost șters cu succes!")
+    },
+    onError: (error) => {
+      console.error("Error deleting tip document:", error)
+      toast.error(error.response?.data?.error || "Eroare la ștergerea tipului de document")
     }
   })
 
@@ -92,7 +249,6 @@ export default function AdminPage() {
       console.error('Error creating user:', error)
     }
   }
-
   const handleCreateRole = async (roleData) => {
     try {
       await createRoleMutation.mutateAsync(roleData)
@@ -101,6 +257,62 @@ export default function AdminPage() {
     }
   }
 
+  const handleCreatePermission = async (permissionData) => {
+    try {
+      await createPermissionMutation.mutateAsync(permissionData)
+    } catch (error) {
+      console.error('Error creating permission:', error)
+    }
+  }
+
+  const handleUpdatePermission = async (id, data) => {
+    try {
+      await updatePermissionMutation.mutateAsync({ id, data })
+    } catch (error) {
+      console.error('Error updating permission:', error)
+    }
+  }
+  const handleDeletePermission = async (permissionId) => {
+    if (window.confirm('Ești sigur că vrei să ștergi această permisiune?')) {
+      try {
+        await deletePermissionMutation.mutateAsync(permissionId)
+      } catch (error) {
+        console.error('Error deleting permission:', error)
+      }
+    }
+  }
+
+  // Handler functions pentru TipDocument
+  const handleCreateTipDocument = async (tipDocumentData) => {
+    try {
+      await createTipDocumentMutation.mutateAsync(tipDocumentData)
+    } catch (error) {
+      console.error('Error creating tip document:', error)
+    }
+  }
+
+  const handleEditTipDocument = (tipDocument) => {
+    setEditingTipDocument(tipDocument)
+    setIsEditTipDocumentDialogOpen(true)
+  }
+
+  const handleUpdateTipDocument = async (tipDocumentData) => {
+    try {
+      await updateTipDocumentMutation.mutateAsync(tipDocumentData)
+    } catch (error) {
+      console.error('Error updating tip document:', error)
+    }
+  }
+
+  const handleDeleteTipDocument = async (tipDocumentId) => {
+    if (window.confirm('Ești sigur că vrei să ștergi acest tip de document?')) {
+      try {
+        await deleteTipDocumentMutation.mutateAsync(tipDocumentId)
+      } catch (error) {
+        console.error('Error deleting tip document:', error)
+      }
+    }
+  }
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Ești sigur că vrei să ștergi acest utilizator?')) {
       try {
@@ -110,24 +322,11 @@ export default function AdminPage() {
       }
     }
   }
-
+  
   const roles = [
     { id: 1, name: "Admin", description: "Acces complet la sistem", permissions: 15, users: 2 },
     { id: 2, name: "Manager", description: "Gestionare documente și utilizatori", permissions: 8, users: 5 },
     { id: 3, name: "User", description: "Acces de bază la documente", permissions: 3, users: 25 }
-  ]
-
-  const permissions = [
-    { id: 1, name: "user.create", description: "Creare utilizatori", module: "Users" },
-    { id: 2, name: "user.read", description: "Vizualizare utilizatori", module: "Users" },
-    { id: 3, name: "document.create", description: "Creare documente", module: "Documents" },
-    { id: 4, name: "document.delete", description: "Ștergere documente", module: "Documents" }
-  ]
-
-  const documentTypes = [
-    { id: 1, name: "Contract", description: "Contracte și acorduri", extensions: "pdf,doc,docx", active: true },
-    { id: 2, name: "Factură", description: "Facturi și documente financiare", extensions: "pdf,xls,xlsx", active: true },
-    { id: 3, name: "Raport", description: "Rapoarte și analize", extensions: "pdf,doc,docx,xls", active: false }
   ]
 
   const folderCategories = [
@@ -144,15 +343,14 @@ export default function AdminPage() {
 
   const backups = [
     { id: 1, name: "backup_2025_06_01.sql", size: "2.5 GB", created: "2025-06-01 02:00", type: "Automatic", status: "Completed" },
-    { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },
-    { id: 3, name: "manual_backup_2025_05_30.sql", size: "2.3 GB", created: "2025-05-30 14:30", type: "Manual", status: "Completed" }
+    { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },    { id: 3, name: "manual_backup_2025_05_30.sql", size: "2.3 GB", created: "2025-05-30 14:30", type: "Manual", status: "Completed" }
   ]
-
+  
   const stats = [
     { title: "Total Utilizatori", value: users.length.toString(), icon: Users, color: "text-blue-600" },
     { title: "Roluri Active", value: rolesData.length.toString(), icon: Shield, color: "text-green-600" },
-    { title: "Permisiuni", value: "24", icon: Key, color: "text-purple-600" },
-    { title: "Tipuri Documente", value: "12", icon: FileText, color: "text-orange-600" }
+    { title: "Permisiuni", value: permissionsData.length.toString(), icon: Key, color: "text-purple-600" },
+    { title: "Tipuri Documente", value: tipuriDocumenteData.length.toString(), icon: FileText, color: "text-orange-600" }
   ]
 
   return (
@@ -264,9 +462,7 @@ export default function AdminPage() {
               />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Permissions Tab */}
+        </TabsContent>        {/* Permissions Tab */}
         <TabsContent value="permissions" className="space-y-4">
           <Card>
             <CardHeader>
@@ -277,37 +473,26 @@ export default function AdminPage() {
               <CardDescription>Controlează accesul la funcționalitățile sistemului</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nume Permisiune</TableHead>
-                    <TableHead>Descriere</TableHead>
-                    <TableHead>Modul</TableHead>
-                    <TableHead>Acțiuni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {permissions.map((permission) => (
-                    <TableRow key={permission.id}>
-                      <TableCell className="font-medium">{permission.name}</TableCell>
-                      <TableCell>{permission.description}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{permission.module}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="flex justify-end mb-4">
+                <AddPermissionDialog
+                  open={isCreatePermissionDialogOpen}
+                  onOpenChange={setIsCreatePermissionDialogOpen}
+                  onSubmit={handleCreatePermission}
+                  isLoading={createPermissionMutation.isPending}
+                />
+              </div>
+              <PermissionsTable
+                permissions={permissionsData}
+                isLoading={isLoadingPermissions}
+                error={permissionsError?.message}
+                onUpdate={handleUpdatePermission}
+                onDelete={handleDeletePermission}
+                updateMutation={updatePermissionMutation}
+                deleteMutation={deletePermissionMutation}
+              />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Document Types Tab */}
+        </TabsContent>        {/* Document Types Tab */}
         <TabsContent value="documents" className="space-y-4">
           <Card>
             <CardHeader>
@@ -315,48 +500,29 @@ export default function AdminPage() {
                 <FileText className="h-5 w-5" />
                 Tipuri de Documente
               </CardTitle>
-              <CardDescription>Configurează tipurile de documente acceptate</CardDescription>
+              <CardDescription>
+                Gestionează tipurile de documente din registre
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex justify-end mb-4">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adaugă Tip
-                </Button>
+                <AdaugaTipDocumentModal
+                  open={isCreateTipDocumentDialogOpen}
+                  onOpenChange={setIsCreateTipDocumentDialogOpen}
+                  onSubmit={handleCreateTipDocument}
+                  isLoading={createTipDocumentMutation.isPending}
+                  registre={registreData}
+                  categorii={categoriiData}
+                />
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nume</TableHead>
-                    <TableHead>Descriere</TableHead>
-                    <TableHead>Extensii</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Acțiuni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documentTypes.map((type) => (
-                    <TableRow key={type.id}>
-                      <TableCell className="font-medium">{type.name}</TableCell>
-                      <TableCell>{type.description}</TableCell>
-                      <TableCell>{type.extensions}</TableCell>
-                      <TableCell>
-                        <Switch checked={type.active} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <TipuriDocumenteTable
+                tipuriDocumente={tipuriDocumenteData}
+                isLoading={isLoadingTipuriDocumente}
+                error={tipuriDocumenteError?.message}
+                onEdit={handleEditTipDocument}
+                onDelete={handleDeleteTipDocument}
+                isDeleting={deleteTipDocumentMutation.isPending}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -521,9 +687,19 @@ export default function AdminPage() {
                 </TableBody>
               </Table>
             </CardContent>
-          </Card>
-        </TabsContent>
+          </Card>        </TabsContent>
       </Tabs>
+
+      {/* Edit TipDocument Modal */}
+      <EditeazaTipDocumentModal
+        open={isEditTipDocumentDialogOpen}
+        onOpenChange={setIsEditTipDocumentDialogOpen}
+        onSubmit={handleUpdateTipDocument}
+        isLoading={updateTipDocumentMutation.isPending}
+        tipDocument={editingTipDocument}
+        registre={registreData}
+        categorii={categoriiData}
+      />
     </div>
   )
 }

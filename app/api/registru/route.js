@@ -29,59 +29,105 @@ export async function GET(request) {
         { error: 'Nu ești autentificat' },
         { status: 401 }
       )
-    }
-
-    const { searchParams } = new URL(request.url)
+    }    const { searchParams } = new URL(request.url)
     const departmentId = searchParams.get('departmentId')
     const an = searchParams.get('an') ? parseInt(searchParams.get('an')) : undefined;
+    const toate = searchParams.get('toate') === 'true'; // Pentru admin - obține toate registrele
 
-    if (!departmentId) {
+    if (!departmentId && !toate) {
       return NextResponse.json(
-        { error: 'ID-ul departamentului este obligatoriu' },
+        { error: 'ID-ul departamentului este obligatoriu sau specifică toate=true pentru admin' },
         { status: 400 }
       )
     }
 
-    // Verifică dacă departamentul există și aparține primăriei
-    const departament = await prisma.departament.findFirst({
-      where: {
-        id: departmentId,
-        primariaId: primariaId
-      }
-    })
+    let registre, listaAni;
 
-    if (!departament) {
-      return NextResponse.json(
-        { error: 'Departamentul nu a fost găsit' },
-        { status: 404 }
-      )    }
-
-    // Obține registrele departamentului, cu filtrare după an dacă e cazul
-    const registre = await prisma.registru.findMany({
-      where: {
-        departamentId: departmentId,
-        ...(an ? { an } : {})
-      },
-      include: {
-        _count: {
-          select: {
-            inregistrari: true
+    if (toate) {
+      // Pentru admin - obține toate registrele din toate departamentele primăriei
+      registre = await prisma.registru.findMany({
+        where: {
+          departament: {
+            primariaId: primariaId
+          },
+          ...(an ? { an } : {})
+        },
+        include: {
+          departament: {
+            select: {
+              id: true,
+              nume: true,
+              cod: true
+            }
+          },
+          _count: {
+            select: {
+              inregistrari: true
+            }
           }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+        },
+        orderBy: [
+          { departament: { nume: 'asc' } },
+          { createdAt: 'desc' }
+        ]
+      })
 
-    // Extrage lista de ani disponibili pentru filtre (distinct)
-    const aniDisponibili = await prisma.registru.findMany({
-      where: { departamentId: departmentId },
-      select: { an: true },
-      distinct: ['an'],
-      orderBy: { an: 'desc' }
-    });
-    const listaAni = aniDisponibili.map(r => r.an).sort((a, b) => b - a);
+      // Lista de ani pentru toate registrele
+      const aniDisponibili = await prisma.registru.findMany({
+        where: {
+          departament: {
+            primariaId: primariaId
+          }
+        },
+        select: { an: true },
+        distinct: ['an'],
+        orderBy: { an: 'desc' }
+      });
+      listaAni = aniDisponibili.map(r => r.an).sort((a, b) => b - a);
+    } else {
+      // Pentru departament specific - comportamentul existent
+      // Verifică dacă departamentul există și aparține primăriei
+      const departament = await prisma.departament.findFirst({
+        where: {
+          id: departmentId,
+          primariaId: primariaId
+        }
+      })
+
+      if (!departament) {
+        return NextResponse.json(
+          { error: 'Departamentul nu a fost găsit' },
+          { status: 404 }
+        )
+      }
+
+      // Obține registrele departamentului, cu filtrare după an dacă e cazul
+      registre = await prisma.registru.findMany({
+        where: {
+          departamentId: departmentId,
+          ...(an ? { an } : {})
+        },
+        include: {
+          _count: {
+            select: {
+              inregistrari: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+
+      // Extrage lista de ani disponibili pentru filtre (distinct)
+      const aniDisponibili = await prisma.registru.findMany({
+        where: { departamentId: departmentId },
+        select: { an: true },
+        distinct: ['an'],
+        orderBy: { an: 'desc' }
+      });
+      listaAni = aniDisponibili.map(r => r.an).sort((a, b) => b - a);
+    }
 
     return NextResponse.json(serializeBigInt({
       success: true,
