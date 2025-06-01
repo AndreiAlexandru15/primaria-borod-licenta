@@ -223,8 +223,7 @@ export default function AuditLogsTable() {
           `Afișez ${auditLogs.length} din ${pagination.total || 0} înregistrări`
         )}
       </div>      {/* Table */}
-      <div className="border rounded-md">
-        <Table>
+      <div className="border rounded-md">        <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Utilizator</TableHead>
@@ -234,7 +233,8 @@ export default function AuditLogsTable() {
               <TableHead>IP Address</TableHead>
               <TableHead>Acțiuni</TableHead>
             </TableRow>
-          </TableHeader>          <TableBody>
+          </TableHeader>
+          <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-4">
@@ -296,7 +296,8 @@ export default function AuditLogsTable() {
                   </TableCell>
                 </TableRow>
               ))
-            )}          </TableBody>
+            )}
+          </TableBody>
         </Table>
       </div>
 
