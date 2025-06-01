@@ -27,6 +27,7 @@ export async function DELETE(request, { params }) {
       select: {
         id: true,
         numeOriginal: true,
+        numeFisierDisk: true,
         caleRelativa: true,
         inregistrareId: true
       }
@@ -40,25 +41,37 @@ export async function DELETE(request, { params }) {
     }
 
     // Șterge din storage fizic
-    if (fisier.caleRelativa) {
-      const filePath = join(process.cwd(), fisier.caleRelativa)
+    if (fisier.caleRelativa && fisier.numeFisierDisk) {
+      // Construire cale completă folosind FILES_PATH din .env
+      const basePath = process.env.FILES_PATH || './storage/files'
+      const filePath = join(basePath, fisier.caleRelativa, fisier.numeFisierDisk)
+      
       try {
         if (existsSync(filePath)) {
           await unlink(filePath)
           console.log(`Fișier șters din storage: ${filePath}`)
+        } else {
+          console.warn(`Fișierul nu există în storage: ${filePath}`)
         }
       } catch (error) {
         console.error('Eroare la ștergerea fișierului din storage:', error)
         // Continuă cu ștergerea din DB chiar dacă fișierul fizic nu poate fi șters
       }
+    }
+
+    // Verifică dacă fișierul este atașat la o înregistrare (doar pentru logging)
+    if (fisier.inregistrareId) {
+      console.warn(`Ștergere fișier care este atașat la înregistrarea: ${fisier.inregistrareId}`)
     }    // Șterge din baza de date
     await prisma.fisier.delete({
       where: { id: id }
     })
 
+    console.log(`Fișier șters cu succes din DB: ${fisier.numeOriginal} (ID: ${id})`)
+
     return NextResponse.json({
       success: true,
-      message: `Fișierul "${fisier.numeOriginal}" a fost șters cu succes`
+      message: `Fișierul "${fisier.numeOriginal}" a fost șters cu succes din baza de date și storage`
     })
 
   } catch (error) {

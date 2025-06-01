@@ -417,9 +417,8 @@ export function ListaDocumente() {
                             </>
                           )}
                           
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => handleDelete(doc)}
+                          <DropdownMenuSeparator />                          <DropdownMenuItem 
+                            onClick={() => handleDelete(doc.id)}
                             disabled={!!doc.inregistrareId}
                             className={`${doc.inregistrareId ? 'opacity-50 cursor-not-allowed' : 'text-red-600 focus:text-red-600'}`}
                           >
