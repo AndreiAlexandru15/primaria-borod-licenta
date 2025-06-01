@@ -1,241 +1,505 @@
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
+"use client"
+
+import { useState, useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { 
-  Users, 
-  Building2, 
-  Shield, 
-  Settings, 
-  FileText,
-  Activity,
-  Database,
-  Clock
-} from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Download, Plus, Users, Shield, Key, FileText, FolderOpen, ClipboardList, Database, Upload, Edit, Trash2, Eye, Loader2, Search } from "lucide-react"
+import AddUserDialog from "@/components/AddUserDialog"
+import UsersTable from "@/components/UsersTable"
+import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/use-users"
+import { useDepartments } from "@/hooks/use-departments"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export default function AdminPage() {
-  const adminCards = [
-    {
-      title: "Utilizatori",
-      description: "Gestionează conturile utilizatorilor și accesul la sistem",
-      icon: Users,
-      href: "/dashboard/admin/utilizatori",
-      stats: "12 utilizatori activi",
-      color: "bg-blue-500"
-    },
-    {
-      title: "Departamente",
-      description: "Administrează structura organizațională a primăriei",
-      icon: Building2,
-      href: "/dashboard/admin/departamente",
-      stats: "8 departamente",
-      color: "bg-green-500"
-    },
-    {
-      title: "Roluri & Permisiuni",
-      description: "Configurează rolurile și permisiunile de acces",
-      icon: Shield,
-      href: "/dashboard/admin/roluri",
-      stats: "5 roluri definite",
-      color: "bg-purple-500"
-    },
-    {
-      title: "Configurări Sistem",
-      description: "Setări generale ale aplicației și parametri",
-      icon: Settings,
-      href: "/dashboard/admin/configurari",
-      stats: "Sistem operational",
-      color: "bg-orange-500"
-    },
-    {
-      title: "Audit Log",
-      description: "Vizualizează logurile de activitate și securitate",
-      icon: Activity,
-      href: "/dashboard/admin/audit",
-      stats: "1247 înregistrări",
-      color: "bg-red-500"
-    },
-    {
-      title: "Backup & Restore",
-      description: "Gestionează backup-urile bazei de date",
-      icon: Database,
-      href: "/dashboard/admin/backup",
-      stats: "Ultimul backup: azi",
-      color: "bg-indigo-500"
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedTab, setSelectedTab] = useState("users")
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false)
+  const [newUserData, setNewUserData] = useState({
+    nume: "",
+    prenume: "",
+    email: "",
+    functie: "",
+    telefon: "",
+    parola: "",
+    departamentId: ""
+  })
+  // TanStack Query hooks
+  const { data: users = [], isLoading: isLoadingUsers, error: usersError } = useUsers()
+  const { data: departments = [], isLoading: isLoadingDepartments } = useDepartments()
+  const createUserMutation = useCreateUser()
+  const deleteUserMutation = useDeleteUser()
+
+  // Filter users based on search term
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm) return users
+    return users.filter(user =>
+      user.nume?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.prenume?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.functie?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [users, searchTerm])
+
+  const handleCreateUser = async () => {
+    try {
+      await createUserMutation.mutateAsync(newUserData)
+      setIsCreateUserDialogOpen(false)
+      setNewUserData({ nume: "", prenume: "", email: "", functie: "", telefon: "", parola: "", departamentId: "" })
+    } catch (error) {
+      console.error('Error creating user:', error)
     }
+  }
+
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Ești sigur că vrei să ștergi acest utilizator?')) {
+      try {
+        await deleteUserMutation.mutateAsync(userId)
+      } catch (error) {
+        console.error('Error deleting user:', error)
+      }
+    }
+  }
+
+  const roles = [
+    { id: 1, name: "Admin", description: "Acces complet la sistem", permissions: 15, users: 2 },
+    { id: 2, name: "Manager", description: "Gestionare documente și utilizatori", permissions: 8, users: 5 },
+    { id: 3, name: "User", description: "Acces de bază la documente", permissions: 3, users: 25 }
   ]
 
-  const recentActions = [
-    {
-      action: "Utilizator nou adăugat",
-      user: "Maria Popescu",
-      time: "Acum 2 ore",
-      type: "success"
-    },
-    {
-      action: "Departament actualizat",
-      user: "Ion Ionescu",
-      time: "Acum 3 ore",
-      type: "info"
-    },
-    {
-      action: "Rol modificat",
-      user: "Ana Gheorghe",
-      time: "Ieri, 14:30",
-      type: "warning"
-    }
+  const permissions = [
+    { id: 1, name: "user.create", description: "Creare utilizatori", module: "Users" },
+    { id: 2, name: "user.read", description: "Vizualizare utilizatori", module: "Users" },
+    { id: 3, name: "document.create", description: "Creare documente", module: "Documents" },
+    { id: 4, name: "document.delete", description: "Ștergere documente", module: "Documents" }
+  ]
+
+  const documentTypes = [
+    { id: 1, name: "Contract", description: "Contracte și acorduri", extensions: "pdf,doc,docx", active: true },
+    { id: 2, name: "Factură", description: "Facturi și documente financiare", extensions: "pdf,xls,xlsx", active: true },
+    { id: 3, name: "Raport", description: "Rapoarte și analize", extensions: "pdf,doc,docx,xls", active: false }
+  ]
+
+  const folderCategories = [
+    { id: 1, name: "Financiar", description: "Documente financiare", parent: null, documentsCount: 150 },
+    { id: 2, name: "HR", description: "Resurse umane", parent: null, documentsCount: 89 },
+    { id: 3, name: "Contracte", description: "Contracte cu clienții", parent: 1, documentsCount: 45 }
+  ]
+
+  const auditLogs = [
+    { id: 1, user: "John Doe", action: "CREATE_USER", resource: "User", timestamp: "2025-06-01 10:30", ip: "192.168.1.100" },
+    { id: 2, user: "Jane Smith", action: "DELETE_DOCUMENT", resource: "Document #123", timestamp: "2025-06-01 09:15", ip: "192.168.1.101" },
+    { id: 3, user: "Bob Wilson", action: "UPDATE_ROLE", resource: "Role Manager", timestamp: "2025-05-31 16:45", ip: "192.168.1.102" }
+  ]
+
+  const backups = [
+    { id: 1, name: "backup_2025_06_01.sql", size: "2.5 GB", created: "2025-06-01 02:00", type: "Automatic", status: "Completed" },
+    { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },
+    { id: 3, name: "manual_backup_2025_05_30.sql", size: "2.3 GB", created: "2025-05-30 14:30", type: "Manual", status: "Completed" }
+  ]
+  const stats = [
+    { title: "Total Utilizatori", value: users.length.toString(), icon: Users, color: "text-blue-600" },
+    { title: "Roluri Active", value: "8", icon: Shield, color: "text-green-600" },
+    { title: "Permisiuni", value: "24", icon: Key, color: "text-purple-600" },
+    { title: "Tipuri Documente", value: "12", icon: FileText, color: "text-orange-600" }
   ]
 
   return (
-    <SidebarProvider>
-      <AppSidebar />      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 z-10 bg-background border-b">
-          <div className="flex items-center justify-between w-full px-4">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="/dashboard">
-                      Dashboard
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Administrare</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
-          </div>
-        </header>
-        
-        <div className="flex flex-1 flex-col gap-6 p-6 pt-0">
-          <div className="flex flex-col space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">Panou de Administrare</h1>
-            <p className="text-muted-foreground">
-              Gestionează utilizatorii, permisiunile și configurările sistemului
-            </p>
-          </div>
-
-          {/* Admin Cards Grid */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {adminCards.map((card, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg">{card.title}</CardTitle>
-                    <CardDescription className="text-sm">
-                      {card.description}
-                    </CardDescription>
-                  </div>
-                  <div className={`${card.color} text-white p-3 rounded-lg`}>
-                    <card.icon className="h-6 w-6" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      {card.stats}
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={card.href}>
-                        Accesează
-                      </a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* System Status */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Status Sistem</CardTitle>
-                <CardDescription>
-                  Informații despre starea actuală a sistemului
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Baza de Date</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-green-600">Online</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Server Status</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-green-600">Operational</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Backup Status</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-green-600">Actualizat</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Utilizatori Activi</span>
-                  <span className="text-sm font-medium">12</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Admin Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Acțiuni Administrative Recente</CardTitle>
-                <CardDescription>
-                  Ultimele modificări efectuate de administratori
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentActions.map((action, index) => (
-                    <div key={index} className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {action.action}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {action.user} • {action.time}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <Button variant="outline" className="w-full mt-4">
-                  <Activity className="h-4 w-4 mr-2" />
-                  Vezi toate acțiunile
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Panou de Administrare</h1>
+          <p className="text-muted-foreground">Gestionează utilizatorii, rolurile și permisiunile sistemului</p>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
-  );
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Adaugă
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Main Content */}
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="users">Utilizatori</TabsTrigger>
+          <TabsTrigger value="roles">Roluri</TabsTrigger>
+          <TabsTrigger value="permissions">Permisiuni</TabsTrigger>
+          <TabsTrigger value="documents">Tipuri Doc.</TabsTrigger>
+          <TabsTrigger value="folders">Categorii</TabsTrigger>
+          <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="backup">Back-up</TabsTrigger>
+        </TabsList>
+
+        {/* Users Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Gestionare Utilizatori
+              </CardTitle>
+              <CardDescription>Administrează conturile de utilizator și accesul acestora</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UsersTable
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                users={filteredUsers}
+                isLoading={isLoadingUsers}
+                error={usersError}
+                handleDeleteUser={handleDeleteUser}
+                deleteUserMutation={deleteUserMutation}
+                AddUserDialog={
+                  <AddUserDialog
+                    open={isCreateUserDialogOpen}
+                    onOpenChange={setIsCreateUserDialogOpen}
+                    newUserData={newUserData}
+                    setNewUserData={setNewUserData}
+                    handleCreateUser={handleCreateUser}
+                    createUserMutation={createUserMutation}
+                    departments={departments}
+                    isLoadingDepartments={isLoadingDepartments}
+                  />
+                }
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Roles Tab */}
+        <TabsContent value="roles" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Gestionare Roluri
+              </CardTitle>
+              <CardDescription>Definește și gestionează rolurile utilizatorilor</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-end mb-4">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adaugă Rol
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nume Rol</TableHead>
+                    <TableHead>Descriere</TableHead>
+                    <TableHead>Permisiuni</TableHead>
+                    <TableHead>Utilizatori</TableHead>
+                    <TableHead>Acțiuni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {roles.map((role) => (
+                    <TableRow key={role.id}>
+                      <TableCell className="font-medium">{role.name}</TableCell>
+                      <TableCell>{role.description}</TableCell>
+                      <TableCell>{role.permissions}</TableCell>
+                      <TableCell>{role.users}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Permissions Tab */}
+        <TabsContent value="permissions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Gestionare Permisiuni
+              </CardTitle>
+              <CardDescription>Controlează accesul la funcționalitățile sistemului</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nume Permisiune</TableHead>
+                    <TableHead>Descriere</TableHead>
+                    <TableHead>Modul</TableHead>
+                    <TableHead>Acțiuni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {permissions.map((permission) => (
+                    <TableRow key={permission.id}>
+                      <TableCell className="font-medium">{permission.name}</TableCell>
+                      <TableCell>{permission.description}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{permission.module}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Document Types Tab */}
+        <TabsContent value="documents" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Tipuri de Documente
+              </CardTitle>
+              <CardDescription>Configurează tipurile de documente acceptate</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-end mb-4">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adaugă Tip
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nume</TableHead>
+                    <TableHead>Descriere</TableHead>
+                    <TableHead>Extensii</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Acțiuni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {documentTypes.map((type) => (
+                    <TableRow key={type.id}>
+                      <TableCell className="font-medium">{type.name}</TableCell>
+                      <TableCell>{type.description}</TableCell>
+                      <TableCell>{type.extensions}</TableCell>
+                      <TableCell>
+                        <Switch checked={type.active} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Folder Categories Tab */}
+        <TabsContent value="folders" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderOpen className="h-5 w-5" />
+                Categorii Dosare
+              </CardTitle>
+              <CardDescription>Organizează structura dosarelor</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-end mb-4">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adaugă Categorie
+                </Button>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nume</TableHead>
+                    <TableHead>Descriere</TableHead>
+                    <TableHead>Parent</TableHead>
+                    <TableHead>Documente</TableHead>
+                    <TableHead>Acțiuni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {folderCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell>{category.description}</TableCell>
+                      <TableCell>{category.parent || "-"}</TableCell>
+                      <TableCell>{category.documentsCount}</TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Audit Log Tab */}
+        <TabsContent value="audit" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" />
+                Jurnal de Audit
+              </CardTitle>
+              <CardDescription>Monitorizează activitățile utilizatorilor</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Utilizator</TableHead>
+                    <TableHead>Acțiune</TableHead>
+                    <TableHead>Resursă</TableHead>
+                    <TableHead>Timestamp</TableHead>
+                    <TableHead>IP</TableHead>
+                    <TableHead>Acțiuni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {auditLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="font-medium">{log.user}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{log.action}</Badge>
+                      </TableCell>
+                      <TableCell>{log.resource}</TableCell>
+                      <TableCell>{log.timestamp}</TableCell>
+                      <TableCell>{log.ip}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Backup Tab */}
+        <TabsContent value="backup" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Gestionare Back-up
+              </CardTitle>
+              <CardDescription>Administrează copiile de siguranță ale sistemului</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex space-x-2">
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Backup Manual
+                  </Button>
+                  <Button variant="outline">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Restaurează
+                  </Button>
+                </div>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nume Fișier</TableHead>
+                    <TableHead>Dimensiune</TableHead>
+                    <TableHead>Creat</TableHead>
+                    <TableHead>Tip</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Acțiuni</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {backups.map((backup) => (
+                    <TableRow key={backup.id}>
+                      <TableCell className="font-medium">{backup.name}</TableCell>
+                      <TableCell>{backup.size}</TableCell>
+                      <TableCell>{backup.created}</TableCell>
+                      <TableCell>
+                        <Badge variant={backup.type === "Automatic" ? "default" : "secondary"}>
+                          {backup.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="default">{backup.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="ghost" size="sm">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
 }
