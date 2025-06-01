@@ -70,9 +70,8 @@ export function AdaugaInregistrareModal({
       return response.data.success ? response.data.data : []
     },
     enabled: allowDepartmentSelection && modalIsOpen
-  })
-  // Query pentru registrele departamentului selectat
-  const { data: registre = [] } = useQuery({
+  })  // Query pentru registrele departamentului selectat
+  const { data: registre = [], isLoading: registreLoading } = useQuery({
     queryKey: ['registre', selectedDepartamentId],
     queryFn: async () => {
       if (!selectedDepartamentId) return []
@@ -107,7 +106,6 @@ export function AdaugaInregistrareModal({
       return response.data.data;
     },    enabled: modalIsOpen && !!(selectedDepartamentId || departamentId)
   })
-
   // Effect to handle pre-existing file
   useEffect(() => {
     if (preExistingFile && modalIsOpen) {
@@ -129,7 +127,17 @@ export function AdaugaInregistrareModal({
       }))
     }
   }, [preExistingFile, modalIsOpen])
-  // Debug effect pentru a vedea datele
+
+  // Effect to ensure registry is cleared when department changes
+  useEffect(() => {
+    if (allowDepartmentSelection && selectedDepartamentId) {
+      // Only reset if we actually had a registry selected
+      if (selectedRegistruId) {
+        console.log('Department changed, clearing registry selection')
+        setSelectedRegistruId('')
+      }
+    }
+  }, [selectedDepartamentId, allowDepartmentSelection])// Debug effect pentru a vedea datele
   useEffect(() => {
     console.log('=== DEBUG INFO ===')
     console.log('FormData:', formData)
@@ -137,10 +145,13 @@ export function AdaugaInregistrareModal({
     console.log('Categorii:', categorii)
     console.log('Departamente:', departamente)
     console.log('Registre:', registre)
+    console.log('Registre loading:', registreLoading)
     console.log('Selected departamentId:', selectedDepartamentId)
     console.log('Selected registruId:', selectedRegistruId)
     console.log('allowDepartmentSelection:', allowDepartmentSelection)
     console.log('Tip document selectat:', formData.tipDocumentId)
+    console.log('Pre-existing file:', preExistingFile)
+    console.log('File state:', file)
     
     if (formData.tipDocumentId && formData.tipDocumentId !== '') {
       const tipSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
@@ -149,7 +160,7 @@ export function AdaugaInregistrareModal({
       console.log('CategorieId din tip:', tipSelectat?.categorieId)
     }
     console.log('==================')
-  }, [formData.tipDocumentId, tipuriDocumente, categorii, departamente, registre, selectedDepartamentId, selectedRegistruId, allowDepartmentSelection, formData])
+  }, [formData.tipDocumentId, tipuriDocumente, categorii, departamente, registre, registreLoading, selectedDepartamentId, selectedRegistruId, allowDepartmentSelection, formData, preExistingFile, file])
   
   // Mutation pentru upload fișier
   const uploadFileMutation = useMutation({
@@ -242,7 +253,6 @@ export function AdaugaInregistrareModal({
       setIsUploading(false)
     }
   })
-
   // Mutation pentru ștergere fișier
   const deleteFileMutation = useMutation({
     mutationFn: async (fileId) => {
@@ -258,6 +268,33 @@ export function AdaugaInregistrareModal({
     onError: (error) => {
       console.error('Delete file error:', error)
       notifyError(error.message || 'Eroare la ștergerea fișierului')
+    }
+  })
+  // Mutation pentru actualizarea categoriei fișierului existent
+  const updateFileMutation = useMutation({
+    mutationFn: async ({ fileId, categorieId, departamentId }) => {
+      console.log('Updating file category:', { fileId, categorieId, departamentId })
+      const response = await axios.patch(`/api/fisiere/${fileId}`, {
+        categorieId,
+        departamentId
+      })
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la actualizarea fișierului')
+      }
+      return response.data
+    },
+    onSuccess: (data) => {
+      console.log('File updated successfully:', data)
+      // Actualizează informațiile fișierului local
+      setFile(prev => prev ? {
+        ...prev,
+        categorie: data.data.categorie,
+        caleRelativa: data.data.caleRelativa
+      } : null)
+    },
+    onError: (error) => {
+      console.error('Update file error:', error)
+      // Note: Don't show error notification here since we handle it in handleSubmit
     }
   })
     // Mutation pentru creare înregistrare
@@ -348,8 +385,7 @@ export function AdaugaInregistrareModal({
     setIsUploading(false)
     setIsDragOver(false)
   }
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     // Debug: Verifică datele înainte de trimitere
@@ -360,6 +396,8 @@ export function AdaugaInregistrareModal({
     console.log('dataInregistrare type:', typeof formData.dataInregistrare)
     console.log('dataDocument toISOString:', formData.dataDocument.toISOString())
     console.log('dataInregistrare toISOString:', formData.dataInregistrare.toISOString())
+    console.log('Pre-existing file:', preExistingFile)
+    console.log('File object:', file)
     console.log('===================')
     
     // Validări
@@ -388,6 +426,34 @@ export function AdaugaInregistrareModal({
     if (!formData.fisierAtas) {
       notifyError('Fișierul atașat este obligatoriu')
       return
+    }
+    
+    // If we have a pre-existing file, update its category before creating the registration
+    if (preExistingFile && formData.tipDocumentId) {
+      console.log('=== UPDATING PRE-EXISTING FILE ===')
+      const tipDocumentSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
+      console.log('Selected document type:', tipDocumentSelectat)
+      
+      if (tipDocumentSelectat) {
+        const categorieId = tipDocumentSelectat.categorieId || tipDocumentSelectat.categorie?.id
+        console.log('Category ID to update:', categorieId)
+        
+        if (categorieId) {
+          try {
+            console.log('Updating file category for pre-existing file...')
+            await updateFileMutation.mutateAsync({
+              fileId: preExistingFile.id,
+              categorieId: categorieId,
+              departamentId: departamentToUse
+            })
+            console.log('File category updated successfully')
+          } catch (error) {
+            console.error('Failed to update file category:', error)
+            notifyError('Nu s-a putut actualiza categoria fișierului')
+            return
+          }
+        }
+      }
     }
     
     console.log('Submitting form with data:', formData)
@@ -522,9 +588,7 @@ export function AdaugaInregistrareModal({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Registry Selection */}
+              </div>              {/* Registry Selection */}
               <div className="space-y-1">
                 <Label htmlFor="registru" className="text-sm">
                   Registru <span className="text-red-500">*</span>
@@ -532,14 +596,23 @@ export function AdaugaInregistrareModal({
                 <Select
                   value={selectedRegistruId || ''}
                   onValueChange={(value) => {
+                    console.log('Registry selected:', value)
                     setSelectedRegistruId(value)
                     setFormData(prev => ({ ...prev, tipDocumentId: '' })) // Reset document type
                   }}
                   required
-                  disabled={!selectedDepartamentId}
+                  disabled={!selectedDepartamentId || registreLoading}
                 >
                   <SelectTrigger className="text-sm h-10">
-                    <SelectValue placeholder={selectedDepartamentId ? "Selectează registrul" : "Selectează primul departamentul"} />
+                    <SelectValue placeholder={
+                      !selectedDepartamentId 
+                        ? "Selectează primul departamentul" 
+                        : registreLoading 
+                        ? "Se încarcă..." 
+                        : registre.length === 0 
+                        ? "Nu există registre disponibile"
+                        : "Selectează registrul"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
                     {registre.map(reg => (
