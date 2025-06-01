@@ -6,18 +6,24 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Download, Plus, Users, Shield, Key, FileText, FolderOpen, ClipboardList, Database, Upload, Edit, Trash2, Eye, Loader2, Search } from "lucide-react"
 import AddUserDialog from "@/components/AddUserDialog"
+import AddRoleDialog from "@/components/adauga-rol-modal"
 import UsersTable from "@/components/UsersTable"
+import RolesTable from "@/components/RolesTable"
 import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/use-users"
 import { useDepartments } from "@/hooks/use-departments"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import axios from "axios"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedTab, setSelectedTab] = useState("users")
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false)
+  const [isCreateRoleDialogOpen, setIsCreateRoleDialogOpen] = useState(false)
   const [newUserData, setNewUserData] = useState({
     nume: "",
     prenume: "",
@@ -27,11 +33,44 @@ export default function AdminPage() {
     parola: "",
     departamentId: ""
   })
+
+  const queryClient = useQueryClient()
+
   // TanStack Query hooks
   const { data: users = [], isLoading: isLoadingUsers, error: usersError } = useUsers()
   const { data: departments = [], isLoading: isLoadingDepartments } = useDepartments()
   const createUserMutation = useCreateUser()
   const deleteUserMutation = useDeleteUser()
+
+  // Query pentru roluri
+  const {
+    data: rolesData = [],
+    isLoading: isLoadingRoles,
+    error: rolesError
+  } = useQuery({
+    queryKey: ["roles"],
+    queryFn: async () => {
+      const res = await axios.get("/api/roluri")
+      return res.data.data || []
+    }
+  })
+
+  // Mutation pentru crearea rolurilor
+  const createRoleMutation = useMutation({
+    mutationFn: async (roleData) => {
+      const response = await axios.post("/api/roluri", roleData)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roles"] })
+      toast.success("Rolul a fost creat cu succes!")
+      setIsCreateRoleDialogOpen(false)
+    },
+    onError: (error) => {
+      console.error("Error creating role:", error)
+      toast.error(error.response?.data?.message || "Eroare la crearea rolului")
+    }
+  })
 
   // Filter users based on search term
   const filteredUsers = useMemo(() => {
@@ -51,6 +90,14 @@ export default function AdminPage() {
       setNewUserData({ nume: "", prenume: "", email: "", functie: "", telefon: "", parola: "", departamentId: "" })
     } catch (error) {
       console.error('Error creating user:', error)
+    }
+  }
+
+  const handleCreateRole = async (roleData) => {
+    try {
+      await createRoleMutation.mutateAsync(roleData)
+    } catch (error) {
+      console.error('Error creating role:', error)
     }
   }
 
@@ -100,9 +147,10 @@ export default function AdminPage() {
     { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },
     { id: 3, name: "manual_backup_2025_05_30.sql", size: "2.3 GB", created: "2025-05-30 14:30", type: "Manual", status: "Completed" }
   ]
+
   const stats = [
     { title: "Total Utilizatori", value: users.length.toString(), icon: Users, color: "text-blue-600" },
-    { title: "Roluri Active", value: "8", icon: Shield, color: "text-green-600" },
+    { title: "Roluri Active", value: rolesData.length.toString(), icon: Shield, color: "text-green-600" },
     { title: "Permisiuni", value: "24", icon: Key, color: "text-purple-600" },
     { title: "Tipuri Documente", value: "12", icon: FileText, color: "text-orange-600" }
   ]
@@ -202,42 +250,18 @@ export default function AdminPage() {
             </CardHeader>
             <CardContent>
               <div className="flex justify-end mb-4">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adaugă Rol
-                </Button>
+                <AddRoleDialog
+                  open={isCreateRoleDialogOpen}
+                  onOpenChange={setIsCreateRoleDialogOpen}
+                  onSubmit={handleCreateRole}
+                  isLoading={createRoleMutation.isPending}
+                />
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nume Rol</TableHead>
-                    <TableHead>Descriere</TableHead>
-                    <TableHead>Permisiuni</TableHead>
-                    <TableHead>Utilizatori</TableHead>
-                    <TableHead>Acțiuni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {roles.map((role) => (
-                    <TableRow key={role.id}>
-                      <TableCell className="font-medium">{role.name}</TableCell>
-                      <TableCell>{role.description}</TableCell>
-                      <TableCell>{role.permissions}</TableCell>
-                      <TableCell>{role.users}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RolesTable
+                roles={rolesData}
+                isLoading={isLoadingRoles}
+                error={rolesError?.message}
+              />
             </CardContent>
           </Card>
         </TabsContent>
