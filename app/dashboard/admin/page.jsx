@@ -10,10 +10,13 @@ import AddRoleDialog from "@/components/adauga-rol-modal"
 import AddPermissionDialog from "@/components/adauga-permisiune-modal"
 import AdaugaTipDocumentModal from "@/components/adauga-tip-document-modal"
 import EditeazaTipDocumentModal from "@/components/editeaza-tip-document-modal"
+import AdaugaCategorieDocumentModal from "@/components/adauga-categorie-modal"
+import EditeazaCategorieDocumentModal from "@/components/editeaza-categorie-modal"
 import UsersTable from "@/components/UsersTable"
 import RolesTable from "@/components/RolesTable"
 import PermissionsTable from "@/components/PermissionsTable"
 import TipuriDocumenteTable from "@/components/TipuriDocumenteTable"
+import CategoriiDocumenteTable from "@/components/CategoriiDocumenteTable"
 import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/use-users"
 import { useDepartments } from "@/hooks/use-departments"
 import { Badge } from "@/components/ui/badge"
@@ -24,14 +27,18 @@ import axios from "axios"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-export default function AdminPage() {  const [searchTerm, setSearchTerm] = useState("")
+export default function AdminPage() {
+  const [searchTerm, setSearchTerm] = useState("")
   const [selectedTab, setSelectedTab] = useState("users")
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false)
   const [isCreateRoleDialogOpen, setIsCreateRoleDialogOpen] = useState(false)
   const [isCreatePermissionDialogOpen, setIsCreatePermissionDialogOpen] = useState(false)
   const [isCreateTipDocumentDialogOpen, setIsCreateTipDocumentDialogOpen] = useState(false)
   const [isEditTipDocumentDialogOpen, setIsEditTipDocumentDialogOpen] = useState(false)
+  const [isCreateCategorieDialogOpen, setIsCreateCategorieDialogOpen] = useState(false)
+  const [isEditCategorieDialogOpen, setIsEditCategorieDialogOpen] = useState(false)
   const [editingTipDocument, setEditingTipDocument] = useState(null)
+  const [editingCategorie, setEditingCategorie] = useState(null)
   const [newUserData, setNewUserData] = useState({
     nume: "",
     prenume: "",
@@ -62,6 +69,7 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
       return res.data.data || []
     }
   })
+
   // Mutation pentru crearea rolurilor
   const createRoleMutation = useMutation({
     mutationFn: async (roleData) => {
@@ -124,6 +132,7 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
       toast.error(error.response?.data?.message || "Eroare la actualizarea permisiunii")
     }
   })
+
   // Mutation pentru ștergerea permisiunilor
   const deletePermissionMutation = useMutation({
     mutationFn: async (permissionId) => {
@@ -141,6 +150,7 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
       toast.error(error.response?.data?.message || "Eroare la ștergerea permisiunii")
     }
   })
+
   // Query pentru registre (necesare pentru tipuri documente)
   const {
     data: registreData = [],
@@ -156,7 +166,8 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
   // Query pentru categorii documente 
   const {
     data: categoriiData = [],
-    isLoading: isLoadingCategorii
+    isLoading: isLoadingCategorii,
+    error: categoriiError
   } = useQuery({
     queryKey: ["categorii-document"],
     queryFn: async () => {
@@ -164,6 +175,19 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
       return res.data.data || []
     }
   })
+
+  // Query pentru confidentialitati (necesare pentru categorii documente)
+  const {
+    data: confidentialitatiData = [],
+    isLoading: isLoadingConfidentialitati
+  } = useQuery({
+    queryKey: ["confidentialitati-document"],
+    queryFn: async () => {
+      const res = await axios.get("/api/confidentialitati-document?activ=true")
+      return res.data.data || []
+    }
+  })
+
   // Query pentru tipuri documente
   const {
     data: tipuriDocumenteData = [],
@@ -229,6 +253,56 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
     }
   })
 
+  // Mutations pentru categorii documente
+  const createCategorieMutation = useMutation({
+    mutationFn: async (categorieData) => {
+      const response = await axios.post("/api/categorii-document", categorieData)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categorii-document"] })
+      toast.success("Categoria a fost creată cu succes!")
+      setIsCreateCategorieDialogOpen(false)
+    },
+    onError: (error) => {
+      console.error("Error creating categorie:", error)
+      toast.error(error.response?.data?.error || "Eroare la crearea categoriei")
+    }
+  })
+
+  const updateCategorieMutation = useMutation({
+    mutationFn: async (categorieData) => {
+      const { id, ...updateData } = categorieData
+      const response = await axios.put("/api/categorii-document", { id, ...updateData })
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categorii-document"] })
+      toast.success("Categoria a fost actualizată cu succes!")
+      setIsEditCategorieDialogOpen(false)
+      setEditingCategorie(null)
+    },
+    onError: (error) => {
+      console.error("Error updating categorie:", error)
+      toast.error(error.response?.data?.error || "Eroare la actualizarea categoriei")
+    }
+  })
+
+  const deleteCategorieMutation = useMutation({
+    mutationFn: async (categorieId) => {
+      const response = await axios.delete(`/api/categorii-document?id=${categorieId}`)
+      return response.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["categorii-document"] })
+      toast.success("Categoria a fost ștearsă cu succes!")
+    },
+    onError: (error) => {
+      console.error("Error deleting categorie:", error)
+      toast.error(error.response?.data?.error || "Eroare la ștergerea categoriei")
+    }
+  })
+
   // Filter users based on search term
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return users
@@ -249,6 +323,7 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
       console.error('Error creating user:', error)
     }
   }
+
   const handleCreateRole = async (roleData) => {
     try {
       await createRoleMutation.mutateAsync(roleData)
@@ -272,6 +347,7 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
       console.error('Error updating permission:', error)
     }
   }
+
   const handleDeletePermission = async (permissionId) => {
     if (window.confirm('Ești sigur că vrei să ștergi această permisiune?')) {
       try {
@@ -313,6 +389,39 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
       }
     }
   }
+
+  // Handler functions pentru Categorii
+  const handleCreateCategorie = async (categorieData) => {
+    try {
+      await createCategorieMutation.mutateAsync(categorieData)
+    } catch (error) {
+      console.error('Error creating categorie:', error)
+    }
+  }
+
+  const handleEditCategorie = (categorie) => {
+    setEditingCategorie(categorie)
+    setIsEditCategorieDialogOpen(true)
+  }
+
+  const handleUpdateCategorie = async (categorieData) => {
+    try {
+      await updateCategorieMutation.mutateAsync(categorieData)
+    } catch (error) {
+      console.error('Error updating categorie:', error)
+    }
+  }
+
+  const handleDeleteCategorie = async (categorieId) => {
+    if (window.confirm('Ești sigur că vrei să ștergi această categorie?')) {
+      try {
+        await deleteCategorieMutation.mutateAsync(categorieId)
+      } catch (error) {
+        console.error('Error deleting categorie:', error)
+      }
+    }
+  }
+
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Ești sigur că vrei să ștergi acest utilizator?')) {
       try {
@@ -329,12 +438,6 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
     { id: 3, name: "User", description: "Acces de bază la documente", permissions: 3, users: 25 }
   ]
 
-  const folderCategories = [
-    { id: 1, name: "Financiar", description: "Documente financiare", parent: null, documentsCount: 150 },
-    { id: 2, name: "HR", description: "Resurse umane", parent: null, documentsCount: 89 },
-    { id: 3, name: "Contracte", description: "Contracte cu clienții", parent: 1, documentsCount: 45 }
-  ]
-
   const auditLogs = [
     { id: 1, user: "John Doe", action: "CREATE_USER", resource: "User", timestamp: "2025-06-01 10:30", ip: "192.168.1.100" },
     { id: 2, user: "Jane Smith", action: "DELETE_DOCUMENT", resource: "Document #123", timestamp: "2025-06-01 09:15", ip: "192.168.1.101" },
@@ -343,7 +446,8 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
 
   const backups = [
     { id: 1, name: "backup_2025_06_01.sql", size: "2.5 GB", created: "2025-06-01 02:00", type: "Automatic", status: "Completed" },
-    { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },    { id: 3, name: "manual_backup_2025_05_30.sql", size: "2.3 GB", created: "2025-05-30 14:30", type: "Manual", status: "Completed" }
+    { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },
+    { id: 3, name: "manual_backup_2025_05_30.sql", size: "2.3 GB", created: "2025-05-30 14:30", type: "Manual", status: "Completed" }
   ]
   
   const stats = [
@@ -395,7 +499,7 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
           <TabsTrigger value="roles">Roluri</TabsTrigger>
           <TabsTrigger value="permissions">Permisiuni</TabsTrigger>
           <TabsTrigger value="documents">Tipuri Doc.</TabsTrigger>
-          <TabsTrigger value="folders">Categorii</TabsTrigger>
+          <TabsTrigger value="categories">Categorii Doc.</TabsTrigger>
           <TabsTrigger value="audit">Audit Log</TabsTrigger>
           <TabsTrigger value="backup">Back-up</TabsTrigger>
         </TabsList>
@@ -462,7 +566,9 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
               />
             </CardContent>
           </Card>
-        </TabsContent>        {/* Permissions Tab */}
+        </TabsContent>
+
+        {/* Permissions Tab */}
         <TabsContent value="permissions" className="space-y-4">
           <Card>
             <CardHeader>
@@ -492,7 +598,9 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
               />
             </CardContent>
           </Card>
-        </TabsContent>        {/* Document Types Tab */}
+        </TabsContent>
+
+        {/* Document Types Tab */}
         <TabsContent value="documents" className="space-y-4">
           <Card>
             <CardHeader>
@@ -527,54 +635,35 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
           </Card>
         </TabsContent>
 
-        {/* Folder Categories Tab */}
-        <TabsContent value="folders" className="space-y-4">
+        {/* Categories Tab */}
+        <TabsContent value="categories" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FolderOpen className="h-5 w-5" />
-                Categorii Dosare
+                Categorii de Documente
               </CardTitle>
-              <CardDescription>Organizează structura dosarelor</CardDescription>
+              <CardDescription>Gestionează categoriile pentru organizarea documentelor</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex justify-end mb-4">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adaugă Categorie
-                </Button>
+                <AdaugaCategorieDocumentModal
+                  open={isCreateCategorieDialogOpen}
+                  onOpenChange={setIsCreateCategorieDialogOpen}
+                  onSubmit={handleCreateCategorie}
+                  isLoading={createCategorieMutation.isPending}
+                  confidentialitati={confidentialitatiData}
+                  isLoadingConfidentialitati={isLoadingConfidentialitati}
+                />
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nume</TableHead>
-                    <TableHead>Descriere</TableHead>
-                    <TableHead>Parent</TableHead>
-                    <TableHead>Documente</TableHead>
-                    <TableHead>Acțiuni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {folderCategories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      <TableCell>{category.description}</TableCell>
-                      <TableCell>{category.parent || "-"}</TableCell>
-                      <TableCell>{category.documentsCount}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <CategoriiDocumenteTable
+                categorii={categoriiData}
+                isLoading={isLoadingCategorii}
+                error={categoriiError?.message}
+                onEdit={handleEditCategorie}
+                onDelete={handleDeleteCategorie}
+                isDeleting={deleteCategorieMutation.isPending}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -687,7 +776,8 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
                 </TableBody>
               </Table>
             </CardContent>
-          </Card>        </TabsContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Edit TipDocument Modal */}
@@ -699,6 +789,17 @@ export default function AdminPage() {  const [searchTerm, setSearchTerm] = useSt
         tipDocument={editingTipDocument}
         registre={registreData}
         categorii={categoriiData}
+      />
+
+      {/* Edit Categorie Modal */}
+      <EditeazaCategorieDocumentModal
+        open={isEditCategorieDialogOpen}
+        onOpenChange={setIsEditCategorieDialogOpen}
+        onSubmit={handleUpdateCategorie}
+        isLoading={updateCategorieMutation.isPending}
+        categorie={editingCategorie}
+        confidentialitati={confidentialitatiData}
+        isLoadingConfidentialitati={isLoadingConfidentialitati}
       />
     </div>
   )

@@ -1,30 +1,47 @@
-import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, Plus } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 
-export default function AdaugaTipDocumentModal({ 
+export default function EditeazaCategorieModal({ 
   open, 
   onOpenChange, 
   onSubmit, 
   isLoading,
-  registre = [],
-  categorii = []
+  categorie = null,
+  confidentialitati = []
 }) {
   const [form, setForm] = useState({
+    id: "",
     nume: "",
     cod: "",
     descriere: "",
-    registruId: "",
-    categorieId: "",
-    ordineSortare: 0,
-    activ: true
+    perioadaRetentie: 0,
+    confidentialitateDefaultId: "",
+    metadateObligatorii: {},
+    active: true
   })
+
+  // Update form when categorie changes
+  useEffect(() => {
+    if (categorie) {
+      setForm({
+        id: categorie.id || "",
+        nume: categorie.nume || "",
+        cod: categorie.cod || "",
+        descriere: categorie.descriere || "",
+        perioadaRetentie: categorie.perioadaRetentie || 0,
+        confidentialitateDefaultId: categorie.confidentialitateDefaultId || "",
+        metadateObligatorii: categorie.metadateObligatorii || {},
+        active: categorie.active ?? true
+      })
+    }
+  }, [categorie])
 
   const handleChange = (e) => {
     const { name, value, type } = e.target
@@ -33,6 +50,7 @@ export default function AdaugaTipDocumentModal({
       [name]: type === 'number' ? parseInt(value) || 0 : value
     }))
   }
+
   const handleSelectChange = (value, name) => {
     setForm((prev) => ({
       ...prev,
@@ -43,7 +61,7 @@ export default function AdaugaTipDocumentModal({
   const handleSwitchChange = (checked) => {
     setForm((prev) => ({
       ...prev,
-      activ: checked
+      active: checked
     }))
   }
 
@@ -54,13 +72,14 @@ export default function AdaugaTipDocumentModal({
 
   const resetForm = () => {
     setForm({
+      id: "",
       nume: "",
       cod: "",
       descriere: "",
-      registruId: "",
-      categorieId: "",
-      ordineSortare: 0,
-      activ: true
+      perioadaRetentie: 0,
+      confidentialitateDefaultId: "",
+      metadateObligatorii: {},
+      active: true
     })
   }
 
@@ -73,17 +92,11 @@ export default function AdaugaTipDocumentModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="default">
-          <Plus className="h-4 w-4 mr-2" />
-          Adaugă Tip Document
-        </Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Adaugă Tip Document Nou</DialogTitle>
+          <DialogTitle>Editează Categorie Document</DialogTitle>
           <DialogDescription>
-            Completează detaliile pentru tipul de document nou
+            Modifică detaliile categoriei de documente
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
@@ -97,7 +110,7 @@ export default function AdaugaTipDocumentModal({
               className="col-span-3" 
               value={form.nume} 
               onChange={handleChange} 
-              placeholder="ex: Hotărâre, Dispoziție, Contract"
+              placeholder="ex: Financiar, Juridic, HR"
               required
             />
           </div>
@@ -112,37 +125,44 @@ export default function AdaugaTipDocumentModal({
               className="col-span-3" 
               value={form.cod} 
               onChange={handleChange} 
-              placeholder="ex: HOT, DISP, CONTR"
+              placeholder="ex: FIN, JUR, HR"
               required
             />
-          </div>          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="registruId" className="text-right">
-              Registru*
-            </Label>            
-            <Select value={form.registruId || undefined} onValueChange={(value) => handleSelectChange(value, "registruId")} required>
+          </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="perioadaRetentie" className="text-right">
+              Perioada Retenție (ani)
+            </Label>
+            <Input 
+              id="perioadaRetentie" 
+              name="perioadaRetentie" 
+              type="number"
+              className="col-span-3" 
+              value={form.perioadaRetentie} 
+              onChange={handleChange} 
+              placeholder="ex: 5, 10, 15"
+              min="0"
+              max="100"
+            />
+          </div>          
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="confidentialitateDefaultId" className="text-right">
+              Confidențialitate
+            </Label>
+            <Select 
+              value={form.confidentialitateDefaultId || undefined} 
+              onValueChange={(value) => handleSelectChange(value, "confidentialitateDefaultId")}
+            >
               <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Selectează registrul" />
+                <SelectValue placeholder="Selectează nivelul de confidențialitate (opțional)" />
               </SelectTrigger>
               <SelectContent>
-                {registre.map((registru) => (
-                  <SelectItem key={registru.id} value={registru.id}>
-                    {registru.nume} ({registru.cod})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="categorieId" className="text-right">
-              Categorie
-            </Label>            <Select value={form.categorieId || undefined} onValueChange={(value) => handleSelectChange(value, "categorieId") }>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Selectează categoria (opțional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="null">Fără categorie</SelectItem>
-                {categorii.map((categorie) => (
-                  <SelectItem key={categorie.id} value={categorie.id}>
-                    {categorie.nume} ({categorie.cod})
+                <SelectItem value="null">Fără confidențialitate</SelectItem>
+                {confidentialitati.map((conf) => (
+                  <SelectItem key={conf.id} value={conf.id}>
+                    {conf.denumire} ({conf.cod})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -159,34 +179,18 @@ export default function AdaugaTipDocumentModal({
               className="col-span-3" 
               value={form.descriere} 
               onChange={handleChange} 
-              placeholder="Descriere detaliată a tipului de document"
+              placeholder="Descriere detaliată a categoriei de documente"
               rows={3}
             />
           </div>
 
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="ordineSortare" className="text-right">
-              Ordine Sortare
-            </Label>
-            <Input 
-              id="ordineSortare" 
-              name="ordineSortare" 
-              type="number"
-              className="col-span-3" 
-              value={form.ordineSortare} 
-              onChange={handleChange} 
-              placeholder="0"
-              min="0"
-            />
-          </div>
-
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="activ" className="text-right">
-              Activ
+            <Label htmlFor="active" className="text-right">
+              Activă
             </Label>
             <Switch
-              id="activ"
-              checked={form.activ}
+              id="active"
+              checked={form.active}
               onCheckedChange={handleSwitchChange}
             />
           </div>
@@ -197,7 +201,7 @@ export default function AdaugaTipDocumentModal({
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Adaugă Tip Document
+              Salvează Modificările
             </Button>
           </div>
         </form>
