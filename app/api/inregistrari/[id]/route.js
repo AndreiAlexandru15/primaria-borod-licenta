@@ -5,6 +5,9 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { unlink } from 'fs/promises'
+import { join } from 'path'
+import { existsSync } from 'fs'
 
 // Helper function to convert BigInt to String for JSON serialization
 function serializeBigInt(obj) {
@@ -217,11 +220,19 @@ export async function PUT(request, { params }) {
 // DELETE - Șterge o înregistrare
 export async function DELETE(request, { params }) {
   try {
-    const { id } = await params
-
-    // Verifică dacă înregistrarea există
+    const { id } = await params    // Verifică dacă înregistrarea există și obține fișierele asociate
     const inregistrareExistenta = await prisma.inregistrare.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        fisiere: {
+          select: {
+            id: true,
+            caleRelativa: true,
+            numeFisierDisk: true,
+            numeOriginal: true
+          }
+        }
+      }
     })
 
     if (!inregistrareExistenta) {
@@ -234,14 +245,52 @@ export async function DELETE(request, { params }) {
       )
     }
 
-    // Șterge înregistrarea (relațiile se șterg automat prin CASCADE)
-    await prisma.inregistrare.delete({
-      where: { id }
+    // Șterge într-o tranzacție pentru consistență
+    await prisma.$transaction(async (tx) => {
+      // 1. Șterge înregistrarea din baza de date
+      // (fișierele vor avea inregistrareId setat la null prin onDelete: SET NULL)
+      await tx.inregistrare.delete({
+        where: { id }
+      })      // 2. Șterge fișierele asociate din baza de date și din storage
+      if (inregistrareExistenta.fisiere.length > 0) {
+        for (const fisier of inregistrareExistenta.fisiere) {
+          try {
+            // Șterge fișierul fizic din storage
+            if (fisier.caleRelativa && fisier.numeFisierDisk) {
+              // Construire cale completă folosind FILES_PATH din .env
+              const basePath = process.env.FILES_PATH || './storage/files'
+              const filePath = join(basePath, fisier.caleRelativa, fisier.numeFisierDisk)
+              
+              try {
+                if (existsSync(filePath)) {
+                  await unlink(filePath)
+                  console.log(`Fișier șters din storage: ${filePath}`)
+                } else {
+                  console.warn(`Fișierul nu există în storage: ${filePath}`)
+                }
+              } catch (storageError) {
+                console.error('Eroare la ștergerea fișierului din storage:', storageError)
+                // Continuă cu ștergerea din DB chiar dacă fișierul fizic nu poate fi șters
+              }
+            }
+
+            // Șterge înregistrarea din baza de date
+            await tx.fisier.delete({
+              where: { id: fisier.id }
+            })
+            console.log(`Fișierul ${fisier.numeOriginal} a fost șters din baza de date`)
+
+          } catch (fileError) {
+            console.error(`Eroare la ștergerea fișierului ${fisier.numeOriginal}:`, fileError)
+            // Continuă cu celelalte fișiere chiar dacă unul nu poate fi șters
+          }
+        }
+      }
     })
 
     return NextResponse.json({
       success: true,
-      message: 'Înregistrarea a fost ștearsă cu succes'
+      message: `Înregistrarea a fost ștearsă cu succes${inregistrareExistenta.fisiere.length > 0 ? ` împreună cu ${inregistrareExistenta.fisiere.length} fișier(e) asociat(e)` : ''}`
     })
 
   } catch (error) {
