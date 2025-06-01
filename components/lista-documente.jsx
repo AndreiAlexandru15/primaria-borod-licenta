@@ -52,11 +52,14 @@ import {
 // Import componentele pentru vizualizare și upload
 import { VizualizeazaDocumentModal } from './vizualizeaza-document-modal';
 import { FileUploadModal } from './file-upload-modal';
+import { AdaugaInregistrareModal } from './adauga-inregistrare-modal';
 
 export function ListaDocumente() {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [selectedDocumentForRegistration, setSelectedDocumentForRegistration] = useState(null);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["fisiere"],
@@ -168,11 +171,19 @@ export function ListaDocumente() {
       console.error("Eroare la ștergerea documentului:", error);
       throw error;
     }
+  };  const handleRegister = (doc) => {
+    console.log("Înregistrare document:", doc);
+    setSelectedDocumentForRegistration(doc);
+    setShowRegistrationModal(true);
   };
 
-  const handleRegister = (doc) => {
-    // TODO: Implementează înregistrarea documentului (navigare la formularul de înregistrare)
-    console.log("Înregistrare document:", doc);
+  const handleRegistrationModalClose = (open) => {
+    setShowRegistrationModal(open);
+    if (!open) {
+      setSelectedDocumentForRegistration(null);
+      // Refresh the data when modal closes (in case document was registered)
+      refetch();
+    }
   };
 
   const handleUploadComplete = () => {
@@ -490,13 +501,20 @@ export function ListaDocumente() {
         onDelete={handleDelete}
         onRegister={handleRegister}
         onRefresh={refetch}
-      />
-
-      {/* Modal de upload fișiere */}
+      />      {/* Modal de upload fișiere */}
       <FileUploadModal
         isOpen={showUploadModal}
         onOpenChange={setShowUploadModal}
         onUploadComplete={handleUploadComplete}
+      />      {/* Modal de înregistrare document */}
+      <AdaugaInregistrareModal
+        preExistingFile={selectedDocumentForRegistration}
+        isOpen={showRegistrationModal}
+        onOpenChange={handleRegistrationModalClose}
+        departamentId={null} // TODO: Pass proper department ID when available
+        registruId={null} // TODO: Pass proper registry ID when available
+        allowDepartmentSelection={true} // Enable department/registry selection from documents page
+        allowFileRemoval={false} // Disable file removal for pre-existing files
       />
     </div>
   );

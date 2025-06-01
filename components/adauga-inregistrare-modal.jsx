@@ -16,14 +16,23 @@ import { DatePicker } from '@/components/ui/date-picker'
 export function AdaugaInregistrareModal({ 
   departamentId = null, 
   registruId = null,
-  trigger = null 
-}) {  const [isOpen, setIsOpen] = useState(false)
+  trigger = null,
+  preExistingFile = null,
+  isOpen: externalIsOpen = false,
+  onOpenChange: externalOnOpenChange = null,  allowDepartmentSelection = false, // New prop to enable department/registry selection
+  allowFileRemoval = true // New prop to control file removal capability
+}) {
+  const [isOpen, setIsOpen] = useState(false)
   
-  // Funcție pentru truncarea textului
+  // Use external state if provided, otherwise internal state
+  const modalIsOpen = externalOnOpenChange ? externalIsOpen : isOpen
+  const setModalIsOpen = externalOnOpenChange ? externalOnOpenChange : setIsOpen
+    // Funcție pentru truncarea textului
   const truncateText = (text, maxLength = 50) => {
     if (!text) return ''
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
   }
+  
   const [formData, setFormData] = useState({
     expeditor: '',
     destinatarId: '',
@@ -39,10 +48,11 @@ export function AdaugaInregistrareModal({
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
+  const [selectedDepartamentId, setSelectedDepartamentId] = useState(departamentId)
+  const [selectedRegistruId, setSelectedRegistruId] = useState(registruId)
   const fileInputRef = useRef(null)
   const queryClient = useQueryClient()
-  
-  // Query pentru categorii fișiere (pentru fallback dacă tipul de document nu are categorie)
+    // Query pentru categorii fișiere (pentru fallback dacă tipul de document nu are categorie)
   const { data: categorii = [] } = useQuery({
     queryKey: ['categorii-document'],
     queryFn: async () => {
@@ -50,38 +60,86 @@ export function AdaugaInregistrareModal({
       return response.data.success ? response.data.data : []
     }
   })
-  
-  // Query pentru tipurile de documente ale registrului (cu categorii incluse)
-  const { data: tipuriDocumente = [] } = useQuery({
-    queryKey: ['tipuri-documente', registruId],
+  // Query pentru departamente (când este permisă selecția)
+  const { data: departamente = [] } = useQuery({
+    queryKey: ['departamente'],
     queryFn: async () => {
-      if (!registruId) return []
-      console.log('Fetching tipuri documente pentru registruId:', registruId)
-      const response = await axios.get(`/api/tipuri-documente?registruId=${registruId}`)
+      console.log('Fetching departamente...')
+      const response = await axios.get('/api/departamente')
+      console.log('Response departamente:', response.data)
+      return response.data.success ? response.data.data : []
+    },
+    enabled: allowDepartmentSelection && modalIsOpen
+  })
+  // Query pentru registrele departamentului selectat
+  const { data: registre = [] } = useQuery({
+    queryKey: ['registre', selectedDepartamentId],
+    queryFn: async () => {
+      if (!selectedDepartamentId) return []
+      console.log('Fetching registre pentru departamentId:', selectedDepartamentId)
+      const response = await axios.get(`/api/registru?departmentId=${selectedDepartamentId}`)
+      console.log('Response registre:', response.data)
+      return response.data.success ? response.data.data : []
+    },
+    enabled: allowDepartmentSelection && modalIsOpen && !!selectedDepartamentId
+  })
+    // Query pentru tipurile de documente ale registrului (cu categorii incluse)
+  const { data: tipuriDocumente = [] } = useQuery({
+    queryKey: ['tipuri-documente', selectedRegistruId || registruId],
+    queryFn: async () => {
+      const registruToUse = selectedRegistruId || registruId
+      if (!registruToUse) return []
+      console.log('Fetching tipuri documente pentru registruId:', registruToUse)
+      const response = await axios.get(`/api/tipuri-documente?registruId=${registruToUse}`)
       console.log('Response tipuri documente:', response.data)
       return response.data.success ? response.data.data : []
     },
-    enabled: !!registruId
+    enabled: !!(selectedRegistruId || registruId)
   })
-  
-  // Fetch users for the department
+    // Fetch users for the department
   const { data: utilizatori = [], isLoading: utilizatoriLoading } = useQuery({
-    queryKey: ['utilizatori', departamentId],
+    queryKey: ['utilizatori', selectedDepartamentId || departamentId],
     queryFn: async () => {
-      if (!departamentId) return [];
+      const departamentToUse = selectedDepartamentId || departamentId
+      if (!departamentToUse) return [];
       const response = await axios.get('/api/utilizatori');
       if (!response.data.success) throw new Error('Nu s-au putut încărca utilizatorii');
       return response.data.data;
-    },
-    enabled: isOpen && !!departamentId
+    },    enabled: modalIsOpen && !!(selectedDepartamentId || departamentId)
   })
 
+  // Effect to handle pre-existing file
+  useEffect(() => {
+    if (preExistingFile && modalIsOpen) {
+      console.log('Setting pre-existing file:', preExistingFile)
+      setFile({
+        id: preExistingFile.id,
+        numeOriginal: preExistingFile.numeOriginal,
+        marime: preExistingFile.marime,
+        tipMime: preExistingFile.tipMime,
+        extensie: preExistingFile.extensie,
+        categorie: preExistingFile.categorie
+      })
+      setFormData(prev => ({
+        ...prev,
+        fisierAtas: preExistingFile.id,
+        // Pre-populate some fields if available
+        obiect: preExistingFile.subiect || prev.obiect,
+        dataDocument: preExistingFile.dataFisier ? new Date(preExistingFile.dataFisier) : prev.dataDocument
+      }))
+    }
+  }, [preExistingFile, modalIsOpen])
   // Debug effect pentru a vedea datele
   useEffect(() => {
     console.log('=== DEBUG INFO ===')
     console.log('FormData:', formData)
     console.log('Tipuri documente:', tipuriDocumente)
     console.log('Categorii:', categorii)
+    console.log('Departamente:', departamente)
+    console.log('Registre:', registre)
+    console.log('Selected departamentId:', selectedDepartamentId)
+    console.log('Selected registruId:', selectedRegistruId)
+    console.log('allowDepartmentSelection:', allowDepartmentSelection)
     console.log('Tip document selectat:', formData.tipDocumentId)
     
     if (formData.tipDocumentId && formData.tipDocumentId !== '') {
@@ -91,7 +149,7 @@ export function AdaugaInregistrareModal({
       console.log('CategorieId din tip:', tipSelectat?.categorieId)
     }
     console.log('==================')
-  }, [formData.tipDocumentId, tipuriDocumente, categorii, formData])
+  }, [formData.tipDocumentId, tipuriDocumente, categorii, departamente, registre, selectedDepartamentId, selectedRegistruId, allowDepartmentSelection, formData])
   
   // Mutation pentru upload fișier
   const uploadFileMutation = useMutation({
@@ -101,10 +159,10 @@ export function AdaugaInregistrareModal({
       
       const formDataUpload = new FormData()
       formDataUpload.append('file', fileToUpload)
-      
-      // Adaugă departamentId pentru organizarea fișierelor
-      if (departamentId) {
-        formDataUpload.append('departamentId', departamentId)
+        // Adaugă departamentId pentru organizarea fișierelor
+      const departamentToUse = selectedDepartamentId || departamentId
+      if (departamentToUse) {
+        formDataUpload.append('departamentId', departamentToUse)
       }
       
       // PROBLEMA ERA AICI - Folosește categoria din tipul de document selectat
@@ -234,11 +292,10 @@ export function AdaugaInregistrareModal({
       }
       
       console.log('Clean data after formatting:', cleanData)
-      
-      const payload = {
+        const payload = {
         ...cleanData,
-        registruId,
-        departamentId,
+        registruId: selectedRegistruId || registruId,
+        departamentId: selectedDepartamentId || departamentId,
         fisiereIds: cleanData.fisierAtas ? [cleanData.fisierAtas] : []
       }
       delete payload.fisierAtas
@@ -265,9 +322,8 @@ export function AdaugaInregistrareModal({
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['inregistrari'] })
       queryClient.invalidateQueries({ queryKey: ['fisiere'] })
-      
-      resetForm()
-      setIsOpen(false)
+        resetForm()
+      setModalIsOpen(false)
     },
     onError: (error) => {
       console.error('Create registration error:', error)
@@ -318,8 +374,10 @@ export function AdaugaInregistrareModal({
     if (!formData.numarDocument.trim()) {
       notifyError('Numărul documentului este obligatoriu')
       return
-    }
-    if (!departamentId || !registruId) {
+    }    const departamentToUse = selectedDepartamentId || departamentId
+    const registruToUse = selectedRegistruId || registruId
+    
+    if (!departamentToUse || !registruToUse) {
       notifyError('Departamentul și registrul sunt obligatorii pentru a crea înregistrarea')
       return
     }
@@ -392,8 +450,12 @@ export function AdaugaInregistrareModal({
     e.preventDefault()
     setIsDragOver(false)
   }
-
   const handleRemoveFile = () => {
+    // Don't allow file removal if it's disabled (e.g., for pre-existing files from documents page)
+    if (!allowFileRemoval) {
+      return;
+    }
+    
     if (file?.id) {
       deleteFileMutation.mutate(file.id)
     }
@@ -417,7 +479,7 @@ export function AdaugaInregistrareModal({
   const isTipDocumentValid = formData.tipDocumentId && formData.tipDocumentId !== ''
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={modalIsOpen} onOpenChange={setModalIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
           <Button>
@@ -431,8 +493,66 @@ export function AdaugaInregistrareModal({
         <DialogHeader>
           <DialogTitle>Adaugă înregistrare nouă</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Department and Registry Selection (when enabled) */}
+          {allowDepartmentSelection && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
+              {/* Department Selection */}
+              <div className="space-y-1">
+                <Label htmlFor="departament" className="text-sm">
+                  Departament <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedDepartamentId || ''}
+                  onValueChange={(value) => {
+                    setSelectedDepartamentId(value)
+                    setSelectedRegistruId('') // Reset registry when department changes
+                    setFormData(prev => ({ ...prev, tipDocumentId: '' })) // Reset document type
+                  }}
+                  required
+                >
+                  <SelectTrigger className="text-sm h-10">
+                    <SelectValue placeholder="Selectează departamentul" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departamente.map(dept => (
+                      <SelectItem key={dept.id} value={dept.id} className="text-sm">
+                        {dept.nume}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Registry Selection */}
+              <div className="space-y-1">
+                <Label htmlFor="registru" className="text-sm">
+                  Registru <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedRegistruId || ''}
+                  onValueChange={(value) => {
+                    setSelectedRegistruId(value)
+                    setFormData(prev => ({ ...prev, tipDocumentId: '' })) // Reset document type
+                  }}
+                  required
+                  disabled={!selectedDepartamentId}
+                >
+                  <SelectTrigger className="text-sm h-10">
+                    <SelectValue placeholder={selectedDepartamentId ? "Selectează registrul" : "Selectează primul departamentul"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {registre.map(reg => (
+                      <SelectItem key={reg.id} value={reg.id} className="text-sm">
+                        {reg.nume}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {/* Rândul 1: Expeditor | Destinatar */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Expeditor */}
@@ -664,17 +784,18 @@ export function AdaugaInregistrareModal({
                         {(file.marime / 1024 / 1024).toFixed(2)} MB
                         {file.categorie && ` • ${truncateText(file.categorie.nume, 15)}`}
                       </p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRemoveFile}
-                    className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
+                    </div>                </div>
+                  {allowFileRemoval && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRemoveFile}
+                      className="text-red-600 hover:text-red-700 h-8 w-8 p-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -698,10 +819,9 @@ export function AdaugaInregistrareModal({
             </Button>
             <Button
               type="button"
-              variant="outline"
-              onClick={() => {
+              variant="outline"              onClick={() => {
                 resetForm()
-                setIsOpen(false)
+                setModalIsOpen(false)
               }}
               disabled={createMutation.isPending || isUploading}
               className="text-sm"
