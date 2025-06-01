@@ -68,16 +68,14 @@ export function EditeazaInregistrareModal({
     numarDocument: '',
     fisierAtas: null
   })
-  
-  const [file, setFile] = useState(null)
+    const [file, setFile] = useState(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [fisierVechiSters, setFisierVechiSters] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
   const fileInputRef = useRef(null)
-  const queryClient = useQueryClient()
-
-  // Populează formularul cu datele înregistrării când se deschide modalul
+  const queryClient = useQueryClient()  // Populează formularul cu datele înregistrării când se deschide modalul
   useEffect(() => {
     if (isOpen && inregistrare) {
       console.log('Populez formularul cu:', inregistrare)
@@ -90,20 +88,27 @@ export function EditeazaInregistrareModal({
       const dataInregistrare = inregistrare.dataInregistrare 
       ? new Date(inregistrare.dataInregistrare) 
       : new Date()
-       setFormData({
-      expeditor: inregistrare.expeditor || '',
-      destinatarId: inregistrare.destinatarId?.toString() || '',
-      obiect: inregistrare.obiect || '',
-      observatii: inregistrare.observatii || '',
-      dataDocument: dataDocument,
-      dataInregistrare: dataInregistrare,
-      tipDocumentId: inregistrare.tipDocumentId?.toString() || '',
-      numarDocument: inregistrare.numarDocument || '',
-      fisierAtas: inregistrare.fisiere?.[0]?.id || null
-    })
-    setFile(null)
-    setFisierVechiSters(false)
-  }
+      
+      setFormData({
+        expeditor: inregistrare.expeditor || '',
+        destinatarId: inregistrare.destinatarId?.toString() || '',
+        obiect: inregistrare.obiect || '',
+        observatii: inregistrare.observatii || '',
+        dataDocument: dataDocument,
+        dataInregistrare: dataInregistrare,
+        tipDocumentId: inregistrare.tipDocumentId?.toString() || '',
+        numarDocument: inregistrare.numarDocument || '',
+        fisierAtas: inregistrare.fisiere?.[0]?.id || null
+      })
+      setFile(null)
+      setFisierVechiSters(false)
+      setIsInitialized(false) // Reset initialization flag
+    }
+    
+    // Când se închide modalul, resetează flag-ul
+    if (!isOpen) {
+      setIsInitialized(false)
+    }
   }, [isOpen, inregistrare])
 
   // Query pentru tipurile de documente ale registrului
@@ -129,7 +134,6 @@ export function EditeazaInregistrareModal({
     },
     enabled: isOpen && !!departamentId
   })
-
   // Mutation pentru upload fișier
   const uploadFileMutation = useMutation({
     mutationFn: async (fileToUpload) => {
@@ -147,9 +151,35 @@ export function EditeazaInregistrareModal({
         formDataUpload.append('registruId', registruId)
       }
 
-      // Adaugă informații pentru numele fișierului la editare
+      // Determină categoria din tipul de document selectat
+      const tipDocumentSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
+      console.log('Selected document type in edit modal:', tipDocumentSelectat)
+      
+      if (tipDocumentSelectat) {
+        // Încearcă să obții categoria din tipul de document
+        const categorieId = tipDocumentSelectat.categorieId || tipDocumentSelectat.categorie?.id
+        console.log('Category ID from document type:', categorieId)
+        
+        if (categorieId) {
+          console.log('Adding category ID to file upload:', categorieId)
+          formDataUpload.append('categorieId', categorieId)
+        } else {
+          console.warn('Document type has no associated category, file will get default category')
+        }
+      } else {
+        console.warn('No document type selected, file will get default category')
+      }      // Adaugă informații pentru numele fișierului la editare
       if (inregistrare) {
         formDataUpload.append('numarInregistrare', inregistrare.numarInregistrare)
+        formDataUpload.append('isReplacement', 'true') // Marchează că este o înlocuire
+        formDataUpload.append('inregistrareId', inregistrare.id) // ID-ul înregistrării pentru a găsi folderul existent
+        
+        // Dacă există un fișier existent, trimite calea lui pentru a păstra folderul
+        if (inregistrare.fisiere?.[0]) {
+          formDataUpload.append('existingFilePath', inregistrare.fisiere[0].caleRelativa)
+          formDataUpload.append('existingFileId', inregistrare.fisiere[0].id)
+        }
+        
         const numeDocument = fileToUpload.name.split('.')[0]
         formDataUpload.append('numeDocument', numeDocument)
       }
@@ -169,8 +199,7 @@ export function EditeazaInregistrareModal({
       }
       
       return response.data.data
-    },
-    onSuccess: (uploadedFile) => {
+    },    onSuccess: (uploadedFile) => {
       setFile(uploadedFile)
       setFormData(prev => ({ ...prev, fisierAtas: uploadedFile.id }))
       setIsUploading(false)
@@ -180,6 +209,28 @@ export function EditeazaInregistrareModal({
       setIsUploading(false)
       setUploadProgress(0)
       notifyError('Eroare la upload: ' + error.message)
+    }
+  })
+
+  // Mutation pentru actualizarea categoriei fișierului existent
+  const updateFileMutation = useMutation({
+    mutationFn: async ({ fileId, categorieId, departamentId }) => {
+      console.log('Updating file category:', { fileId, categorieId, departamentId })
+      const response = await axios.patch(`/api/fisiere/${fileId}`, {
+        categorieId,
+        departamentId
+      })
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Eroare la actualizarea fișierului')
+      }
+      return response.data.data
+    },
+    onSuccess: (data) => {
+      console.log('File category updated successfully:', data)
+    },
+    onError: (error) => {
+      console.error('Error updating file category:', error.message)
+      notifyError('Eroare la actualizarea categoriei fișierului: ' + error.message)
     }
   })
 
@@ -217,11 +268,11 @@ export function EditeazaInregistrareModal({
       setFormData(prev => ({ ...prev, fisierAtas: null }))
       setFisierVechiSters(true)
       crudNotifications.deleted('Fișierul', inregistrare.fisiere?.[0]?.numeOriginal || 'fișier')
-    },
-    onError: (error) => {
+    },    onError: (error) => {
       notifyError('Eroare la ștergerea fișierului: ' + error.message)
     }
   })
+  
   const resetForm = () => {
     setFormData({
       expeditor: '',
@@ -238,6 +289,7 @@ export function EditeazaInregistrareModal({
     setUploadProgress(0)
     setIsUploading(false)
     setFisierVechiSters(false)
+    setIsInitialized(false)
   }
 
   const handleFileSelect = useCallback((selectedFile) => {
@@ -362,9 +414,7 @@ export function EditeazaInregistrareModal({
     }
 
     editInregistrareMutation.mutate(dataToSubmit)
-  }
-
-  // Sincronizează tipDocumentId după ce tipuriDocumente s-a încărcat
+  }  // Sincronizează tipDocumentId după ce tipuriDocumente s-a încărcat
   useEffect(() => {
     if (
       isOpen &&
@@ -377,8 +427,40 @@ export function EditeazaInregistrareModal({
         ...prev,
         tipDocumentId: inregistrare.tipDocumentId.toString()
       }))
+      // Setează flag-ul de inițializare după ce s-a setat tipul de document
+      setIsInitialized(true)
     }
   }, [isOpen, inregistrare, tipuriDocumente, formData.tipDocumentId])
+  
+  // Actualizează categoria fișierului existent DOAR când utilizatorul schimbă manual tipul de document
+  useEffect(() => {
+    if (
+      isInitialized && // Doar după inițializare
+      formData.tipDocumentId && 
+      tipuriDocumente.length > 0 && 
+      inregistrare?.fisiere?.[0]?.id &&
+      !file // Nu actualizează dacă există un fișier nou încărcat
+    ) {
+      const tipDocumentSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
+      console.log('Document type manually changed, updating existing file category:', tipDocumentSelectat)
+      
+      if (tipDocumentSelectat) {
+        const categorieId = tipDocumentSelectat.categorieId || tipDocumentSelectat.categorie?.id
+        console.log('New category ID for existing file:', categorieId)
+        
+        if (categorieId) {
+          console.log('Updating existing file category...')
+          updateFileMutation.mutate({
+            fileId: inregistrare.fisiere[0].id,
+            categorieId: categorieId,
+            departamentId: departamentId
+          })
+        } else {
+          console.warn('Selected document type has no category, keeping current file category')
+        }
+      }
+    }
+  }, [isInitialized, formData.tipDocumentId, tipuriDocumente, inregistrare?.fisiere, file, departamentId])
 
   // Verifică dacă tipul de document este valid
   const isTipDocumentValid = formData.tipDocumentId && formData.tipDocumentId !== ''

@@ -33,6 +33,10 @@ export async function POST(request) {
     const file = formData.get('file')
     const categorieId = formData.get('categorieId')
     const departamentId = formData.get('departamentId')
+    const isReplacement = formData.get('isReplacement') === 'true'
+    const existingFilePath = formData.get('existingFilePath')
+    const existingFileId = formData.get('existingFileId')
+    const inregistrareId = formData.get('inregistrareId')
     
     if (!file) {
       return NextResponse.json(
@@ -92,26 +96,58 @@ export async function POST(request) {
       if (categorie) {
         categorieNume = categorie.nume
       }
-    }
-
-    // Generare nume unic pentru fișier
+    }    // Generare nume unic pentru fișier
     const fileExtension = file.name.split('.').pop()
     const uniqueId = crypto.randomUUID()
     const uniqueFileName = `${uniqueId}.${fileExtension}`
 
-    // Creare structură de foldere bazată pe An/Departament/Categorie
-    const now = new Date()
-    const year = now.getFullYear().toString()
-    
-    // Sanitizare nume foldere
-    const sanitizedDepartament = sanitizeFolderName(departamentNume)
-    const sanitizedCategorie = sanitizeFolderName(categorieNume)
+    // Determină calea folderului
+    let folderStructure
+    let fullFolderPath
+    let filePath
+    let caleRelativaNormalizata
 
-    // Construire cale folosind FILES_PATH din .env
-    const basePath = process.env.FILES_PATH || './storage/files'
-    const folderStructure = join(year, sanitizedDepartament, sanitizedCategorie)
-    const fullFolderPath = join(basePath, folderStructure)
-    const filePath = join(fullFolderPath, uniqueFileName)
+    if (isReplacement && existingFilePath) {
+      // Pentru înlocuire, folosește folderul existent
+      console.log('File replacement detected, using existing folder:', existingFilePath)
+      folderStructure = existingFilePath
+      caleRelativaNormalizata = existingFilePath
+      
+      const basePath = process.env.FILES_PATH || './storage/files'
+      fullFolderPath = join(basePath, folderStructure)
+      filePath = join(fullFolderPath, uniqueFileName)
+      
+      console.log('Using existing folder structure:', {
+        existingFilePath,
+        folderStructure,
+        fullFolderPath,
+        filePath
+      })
+    } else {
+      // Pentru fișiere noi, creează structură bazată pe An/Departament/Categorie
+      const now = new Date()
+      const year = now.getFullYear().toString()
+      
+      // Sanitizare nume foldere
+      const sanitizedDepartament = sanitizeFolderName(departamentNume)
+      const sanitizedCategorie = sanitizeFolderName(categorieNume)
+
+      // Construire cale folosind FILES_PATH din .env
+      const basePath = process.env.FILES_PATH || './storage/files'
+      folderStructure = join(year, sanitizedDepartament, sanitizedCategorie)
+      fullFolderPath = join(basePath, folderStructure)
+      filePath = join(fullFolderPath, uniqueFileName)
+
+      // Normalizare cale pentru cross-platform (folosește slash-uri forward)
+      caleRelativaNormalizata = folderStructure.replace(/\\/g, '/')
+        console.log('Creating new folder structure:', {
+        year,
+        departamentNume,
+        categorieNume,
+        folderStructure,
+        fullFolderPath
+      })
+    }
 
     // Creare foldere dacă nu există
     if (!existsSync(fullFolderPath)) {
@@ -126,8 +162,8 @@ export async function POST(request) {
     // Generare hash pentru fișier
     const hashFisier = crypto.createHash('sha256').update(buffer).digest('hex')
 
-    // Normalizare cale pentru cross-platform (folosește slash-uri forward)
-    const caleRelativaNormalizata = folderStructure.replace(/\\/g, '/')
+    // Pentru data fișierului - folosește data curentă
+    const now = new Date()
 
     // Salvare în baza de date - cu toate câmpurile obligatorii
     const fisier = await prisma.fisier.create({
