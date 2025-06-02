@@ -477,21 +477,19 @@ export async function PUT(request) {
   
   try {
     const body = await request.json()
-    const { id, subiect, categorieId, confidentialitate, prioritate } = body
-
+    const { id, subiect, categorieId, confidentialitate, prioritate } = body;
     if (!id) {
       // Log încercare de actualizare fără ID
       if (user) {
-        await logGeneralAction(
-          AUDIT_ACTIONS.UPDATE_FILE,
-          user.id,
-          {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.UPDATE_FILE,
+          userId: user.id,
+          details: {
             success: false,
             error: 'ID-ul fișierului este obligatoriu',
             requestData: body
-          },
-          request
-        )
+          }
+        })
       }
       
       return NextResponse.json(
@@ -506,22 +504,22 @@ export async function PUT(request) {
       include: {
         categorie: { select: { id: true, nume: true } }
       }
-    })
-
+    })    
     if (!fisierExistent) {
       // Log încercare de actualizare pentru fișier inexistent
       if (user) {
-        await logGeneralAction(
-          AUDIT_ACTIONS.UPDATE_FILE,
-          user.id,
-          {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.UPDATE_FILE,
+          userId: user.id,
+          entityType: 'FISIER',
+          entityId: id,
+          details: {
             success: false,
             error: 'Fișierul specificat nu există',
             fisierId: id,
             requestData: body
-          },
-          request
-        )
+          }
+        })
       }
       
       return NextResponse.json(
@@ -662,12 +660,13 @@ export async function PUT(request) {
 // DELETE - Șterge fișier
 export async function DELETE(request) {
   const user = await getUserFromToken(request)
-  
+  let id = null
   try {
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    id = searchParams.get('id')
 
-    if (!id) {    // Log încercare de ștergere fără ID
+    if (!id) {
+      // Log încercare de ștergere fără ID
       if (user) {
         await logFileAction(
           AUDIT_ACTIONS.DELETE_FILE,
@@ -680,7 +679,6 @@ export async function DELETE(request) {
           request
         )
       }
-      
       return NextResponse.json(
         { success: false, error: 'ID-ul fișierului este obligatoriu' },
         { status: 400 }
@@ -707,7 +705,8 @@ export async function DELETE(request) {
       }
     })
 
-    if (!fisierExistent) {      // Log încercare de ștergere pentru fișier inexistent
+    if (!fisierExistent) {
+      // Log încercare de ștergere pentru fișier inexistent
       if (user) {
         await logFileAction(
           AUDIT_ACTIONS.DELETE_FILE,
@@ -720,7 +719,6 @@ export async function DELETE(request) {
           request
         )
       }
-      
       return NextResponse.json(
         { success: false, error: 'Fișierul specificat nu există' },
         { status: 404 }
@@ -749,17 +747,13 @@ export async function DELETE(request) {
     const basePath = process.env.FILES_PATH || './storage/files'
     let fullFilePath
     let fileDeleteSuccess = false
-
-    // Construiește calea folosind metadatele sau câmpurile disponibile
     if (fisierExistent.metadate?.fullPath) {
       fullFilePath = fisierExistent.metadate.fullPath
     } else if (fisierExistent.caleRelativa) {
       fullFilePath = join(basePath, fisierExistent.caleRelativa, fisierExistent.numeFisierDisk)
     } else {
-      // Fallback - încearcă să găsești fișierul
       fullFilePath = join(basePath, fisierExistent.numeFisierDisk)
     }
-    
     try {
       const { unlink } = await import('fs/promises')
       if (existsSync(fullFilePath)) {
@@ -768,13 +762,10 @@ export async function DELETE(request) {
       }
     } catch (fileError) {
       console.warn('Nu s-a putut șterge fișierul fizic:', fileError.message)
-      // Continuă cu ștergerea din baza de date chiar dacă fișierul fizic nu poate fi șters
     }
 
     // Șterge din baza de date
-    await prisma.fisier.delete({
-      where: { id }
-    })
+    await prisma.fisier.delete({ where: { id } })
 
     // Log ștergere reușită
     if (user) {
@@ -796,10 +787,9 @@ export async function DELETE(request) {
       success: true,
       message: 'Fișierul a fost șters cu succes'
     })
-
   } catch (error) {
     console.error('Eroare la ștergerea fișierului:', error)
-      // Log eroare de ștergere
+    // Log eroare de ștergere
     if (user) {
       await logFileAction(
         AUDIT_ACTIONS.DELETE_FILE,
@@ -813,10 +803,9 @@ export async function DELETE(request) {
         request
       )
     }
-    
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: 'Nu s-a putut șterge fișierul',
         details: process.env.NODE_ENV === 'development' ? error.message : undefined
       },

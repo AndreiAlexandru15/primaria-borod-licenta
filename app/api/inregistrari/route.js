@@ -8,12 +8,39 @@ import { prisma } from '@/lib/prisma'
 import { rename } from 'fs/promises'
 import { join, dirname, extname } from 'path'
 import { existsSync } from 'fs'
+import { AUDIT_ACTIONS, createAuditLogFromRequest } from '@/lib/audit'
+import jwt from 'jsonwebtoken'
+import { headers } from 'next/headers'
 
 // Helper function to convert BigInt to String for JSON serialization
 function serializeBigInt(obj) {
   return JSON.parse(JSON.stringify(obj, (key, value) =>
     typeof value === 'bigint' ? value.toString() : value
   ))
+}
+
+// Helper function pentru a obține ID-ul utilizatorului din token
+async function getUserIdFromToken(request) {
+  try {
+    const headersList = headers()
+    const userId = headersList.get('x-user-id')
+    
+    if (userId) {
+      return userId
+    }
+    
+    const authHeader = headersList.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null
+    }
+    
+    const token = authHeader.split(' ')[1]
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    return decoded.userId
+  } catch (error) {
+    console.error('Eroare la decodarea token-ului:', error)
+    return null
+  }
 }
 
 // Helper function to build file path from FILES_PATH + caleRelativa + numeFisierDisk
@@ -193,6 +220,8 @@ export async function GET(request) {
 
 // POST - Creează o înregistrare nouă cu documente
 export async function POST(request) {
+  const userId = await getUserIdFromToken(request)
+  
   try {
     const body = await request.json()
     const { 
@@ -213,6 +242,19 @@ export async function POST(request) {
 
     // Validare
     if (!registruId || !obiect || !tipDocumentId) {
+      // Log încercare de creare cu date incomplete
+      if (userId) {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+          userId: userId,
+          details: {
+            success: false,
+            error: 'Registrul, obiectul și tipul de document sunt obligatorii',
+            requestData: body
+          }
+        })
+      }
+      
       return NextResponse.json(
         { 
           success: false, 
@@ -221,13 +263,41 @@ export async function POST(request) {
         { status: 400 }
       )
     }
+    
     if (!destinatarId) {
+      // Log încercare de creare fără destinatar
+      if (userId) {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+          userId: userId,
+          details: {
+            success: false,
+            error: 'Destinatarul este obligatoriu',
+            requestData: body
+          }
+        })
+      }
+      
       return NextResponse.json(
         { success: false, error: 'Destinatarul este obligatoriu' },
         { status: 400 }
       )
     }
+    
     if (!numarDocument) {
+      // Log încercare de creare fără număr document
+      if (userId) {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+          userId: userId,
+          details: {
+            success: false,
+            error: 'Numărul documentului este obligatoriu',
+            requestData: body
+          }
+        })
+      }
+      
       return NextResponse.json(
         { success: false, error: 'Numărul documentului este obligatoriu' },
         { status: 400 }
@@ -236,9 +306,24 @@ export async function POST(request) {
 
     // Verifică dacă registrul există
     const registru = await prisma.registru.findUnique({
-      where: { id: registruId }
+      where: { id: registruId },
+      include: { departament: true }
     })
     if (!registru) {
+      // Log încercare de creare cu registru inexistent
+      if (userId) {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+          userId: userId,
+          details: {
+            success: false,
+            error: 'Registrul specificat nu există',
+            registruId,
+            requestData: body
+          }
+        })
+      }
+      
       return NextResponse.json(
         { 
           success: false, 
@@ -250,9 +335,25 @@ export async function POST(request) {
     
     // Verifică dacă tipul de document există și aparține registrului
     const tipDocument = await prisma.tipDocument.findUnique({
-      where: { id: tipDocumentId }
+      where: { id: tipDocumentId },
+      include: { registru: true }
     })
     if (!tipDocument || tipDocument.registruId !== registruId) {
+      // Log încercare de creare cu tip document invalid
+      if (userId) {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+          userId: userId,
+          details: {
+            success: false,
+            error: 'Tipul de document nu există sau nu aparține registrului',
+            tipDocumentId,
+            registruId,
+            requestData: body
+          }
+        })
+      }
+      
       return NextResponse.json(
         { 
           success: false, 
@@ -347,7 +448,8 @@ export async function POST(request) {
           },
           fisiere: { orderBy: { createdAt: 'asc' } },
           confidentialitate: true,
-          destinatarUtilizator: true
+          destinatarUtilizator: true,
+          tipDocument: true
         }
       })
     })
@@ -363,7 +465,8 @@ export async function POST(request) {
           registru: { include: { departament: true } },
           fisiere: { orderBy: { createdAt: 'asc' } },
           confidentialitate: true,
-          destinatarUtilizator: true
+          destinatarUtilizator: true,
+          tipDocument: true
         }
       })
 
@@ -386,6 +489,31 @@ export async function POST(request) {
       const finalResult = {
         ...updatedResult,
         document: document
+      }      // Log creare reușită cu fișiere
+      if (userId) {
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+          userId: userId,
+          entityType: 'INREGISTRARE',
+          entityId: finalResult.id,
+          details: {
+            success: true,
+            inregistrareId: finalResult.id,
+            numarInregistrare: finalResult.numarInregistrare,
+            expeditor: finalResult.expeditor,
+            destinatarId: finalResult.destinatarId,
+            obiect: finalResult.obiect,
+            urgent: finalResult.urgent,
+            confidential: finalResult.confidential,
+            registruNume: finalResult.registru?.nume,
+            departamentNume: finalResult.registru?.departament?.nume,
+            tipDocumentNume: finalResult.tipDocument?.nume,
+            destinatarNume: finalResult.destinatarUtilizator ? 
+              `${finalResult.destinatarUtilizator.nume} ${finalResult.destinatarUtilizator.prenume}` : null,
+            fisiereAtasate: fisiereIds.length,
+            hasFiles: true
+          }
+        })
       }
 
       return NextResponse.json({
@@ -401,6 +529,31 @@ export async function POST(request) {
       document: null
     }
 
+    // Log creare reușită fără fișiere
+    if (userId) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+        userId: userId,
+        entityType: 'INREGISTRARE',
+        entityId: result.id,
+        details: {
+          success: true,
+          numarInregistrare: result.numarInregistrare,
+          expeditor: result.expeditor,
+          destinatarId: result.destinatarId,
+          obiect: result.obiect,
+          urgent: result.urgent,
+          confidential: result.confidential,
+          registruNume: result.registru?.nume,
+          departamentNume: result.registru?.departament?.nume,
+          tipDocumentNume: result.tipDocument?.nume,
+          destinatarNume: result.destinatarUtilizator ? 
+            `${result.destinatarUtilizator.nume} ${result.destinatarUtilizator.prenume}` : null,
+          hasFiles: false
+        }
+      })
+    }
+
     return NextResponse.json({
       success: true,
       data: serializeBigInt(resultWithDocument),
@@ -409,6 +562,21 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Eroare la crearea înregistrării:', error)
+    
+    // Log eroare de creare
+    if (userId) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.CREATE_INREGISTRARE,
+        userId: userId,
+        details: {
+          success: false,
+          error: 'Nu s-a putut crea înregistrarea',
+          errorDetails: error.message,
+          requestData: body
+        }
+      })
+    }
+    
     return NextResponse.json(
       { 
         success: false, 

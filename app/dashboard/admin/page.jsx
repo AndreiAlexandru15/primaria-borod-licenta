@@ -18,7 +18,8 @@ import PermissionsTable from "@/components/PermissionsTable"
 import TipuriDocumenteTable from "@/components/TipuriDocumenteTable"
 import CategoriiDocumenteTable from "@/components/CategoriiDocumenteTable"
 import AuditLogsTable from "@/components/AuditLogsTable"
-import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/use-users"
+import EditeazaUtilizatorModal from "@/components/editeaza-utilizator-modal"
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/use-users"
 import { useDepartments } from "@/hooks/use-departments"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -38,8 +39,10 @@ export default function AdminPage() {
   const [isEditTipDocumentDialogOpen, setIsEditTipDocumentDialogOpen] = useState(false)
   const [isCreateCategorieDialogOpen, setIsCreateCategorieDialogOpen] = useState(false)
   const [isEditCategorieDialogOpen, setIsEditCategorieDialogOpen] = useState(false)
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false)
   const [editingTipDocument, setEditingTipDocument] = useState(null)
   const [editingCategorie, setEditingCategorie] = useState(null)
+  const [editingUser, setEditingUser] = useState(null)
   const [newUserData, setNewUserData] = useState({
     nume: "",
     prenume: "",
@@ -432,13 +435,22 @@ export default function AdminPage() {
       }
     }
   }
-  
+
+  // Handler pentru editarea utilizatorului  const handleEditUser = (user) => {
+      const handleEditUser = (user) => {
+    setEditingUser(user)
+    setIsEditUserDialogOpen(true)
+  }
+
+  // Mutation pentru editarea utilizatorului
+  const updateUserMutation = useUpdateUser()
+
   const backups = [
     { id: 1, name: "backup_2025_06_01.sql", size: "2.5 GB", created: "2025-06-01 02:00", type: "Automatic", status: "Completed" },
     { id: 2, name: "backup_2025_05_31.sql", size: "2.4 GB", created: "2025-05-31 02:00", type: "Automatic", status: "Completed" },
     { id: 3, name: "manual_backup_2025_05_30.sql", size: "2.3 GB", created: "2025-05-30 14:30", type: "Manual", status: "Completed" }
   ]
-  
+
   const stats = [
     { title: "Total Utilizatori", value: users.length.toString(), icon: Users, color: "text-blue-600" },
     { title: "Roluri Active", value: rolesData.length.toString(), icon: Shield, color: "text-green-600" },
@@ -512,6 +524,7 @@ export default function AdminPage() {
                 error={usersError}
                 handleDeleteUser={handleDeleteUser}
                 deleteUserMutation={deleteUserMutation}
+                handleEditUser={handleEditUser}
                 AddUserDialog={
                   <AddUserDialog
                     open={isCreateUserDialogOpen}
@@ -739,6 +752,21 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit User Modal */}
+      <EditeazaUtilizatorModal
+        utilizator={editingUser}
+        isOpen={isEditUserDialogOpen}
+        onClose={() => {
+          setIsEditUserDialogOpen(false)
+          setEditingUser(null)
+        }}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['users'] })
+          setIsEditUserDialogOpen(false)
+          setEditingUser(null)
+        }}
+      />
 
       {/* Edit TipDocument Modal */}
       <EditeazaTipDocumentModal

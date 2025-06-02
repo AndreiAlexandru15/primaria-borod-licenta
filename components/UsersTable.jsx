@@ -12,6 +12,7 @@ export default function UsersTable({
   error,
   handleDeleteUser,
   deleteUserMutation,
+  handleEditUser,
   AddUserDialog
 }) {
   return (
@@ -83,9 +84,12 @@ export default function UsersTable({
                 <TableCell>
                   <Badge variant="default">Active</Badge>
                 </TableCell>
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <Button variant="ghost" size="sm">
+                <TableCell>                  <div className="flex space-x-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleEditUser(user)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button 

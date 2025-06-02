@@ -247,13 +247,13 @@ model Inregistrare {
   numarDocument      String?            @map("numar_document")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
-
   // Relații
   registru    Registru     @relation(fields: [registruId], references: [id])
   tipDocument TipDocument? @relation(fields: [tipDocumentId], references: [id])
   fisiere     Fisier[]
   confidentialitate ConfidentialitateDocument? @relation(fields: [confidentialitateId], references: [id])
   destinatarUtilizator Utilizator? @relation("DestinatarInregistrare", fields: [destinatarId], references: [id])
+  auditLog    AuditLog[]
 
   @@unique([registruId, numarInregistrare, dataInregistrare], name: "unique_registration")
   @@map("inregistrari")
@@ -399,8 +399,9 @@ model AuditLog {
   createdAt      DateTime @default(now()) @map("created_at")
 
   // Relații
-  utilizator Utilizator? @relation(fields: [utilizatorId], references: [id])
-  fisier     Fisier?     @relation(fields: [fisierId], references: [id])
+  utilizator   Utilizator?   @relation(fields: [utilizatorId], references: [id])
+  fisier       Fisier?       @relation(fields: [fisierId], references: [id])
+  inregistrare Inregistrare? @relation(fields: [inregistrareId], references: [id])
 
   @@map("audit_log")
 }

@@ -33,6 +33,71 @@ export default function AuditLogsTable() {
   const auditLogs = data?.logs || []
   const pagination = data?.pagination || {}
 
+  // Funcție pentru afișarea user-friendly a acțiunilor
+  const getActionDisplayName = (action) => {
+    const actionMap = {
+      // Autentificare
+      'LOGIN_SUCCESS': 'Autentificare reușită',
+      'LOGIN_FAILED': 'Autentificare eșuată', 
+      'LOGOUT': 'Deconectare',
+      
+      // Departamente
+      'CREATE_DEPARTMENT': 'Creare departament',
+      'UPDATE_DEPARTMENT': 'Actualizare departament',
+      'DELETE_DEPARTMENT': 'Ștergere departament',
+      
+      // Registre
+      'CREATE_REGISTRU': 'Creare registru',
+      'UPDATE_REGISTRU': 'Actualizare registru',
+      'DELETE_REGISTRU': 'Ștergere registru',
+      
+      // Înregistrări
+      'CREATE_INREGISTRARE': 'Creare înregistrare',
+      'UPDATE_INREGISTRARE': 'Actualizare înregistrare',
+      'DELETE_INREGISTRARE': 'Ștergere înregistrare',
+      'FINALIZE_INREGISTRARE': 'Finalizare înregistrare',
+      'CANCEL_INREGISTRARE': 'Anulare înregistrare',
+      
+      // Fișiere
+      'UPLOAD_FILE': 'Încărcare fișier',
+      'DOWNLOAD_FILE': 'Descărcare fișier',
+      'DELETE_FILE': 'Ștergere fișier',
+      'UPDATE_FILE': 'Actualizare fișier',
+      'ASSOCIATE_FILE': 'Asociere fișier',
+      
+      // Utilizatori
+      'CREATE_USER': 'Creare utilizator',
+      'UPDATE_USER': 'Actualizare utilizator',
+      'DELETE_USER': 'Ștergere utilizator',
+      'ACTIVATE_USER': 'Activare utilizator',
+      'DEACTIVATE_USER': 'Dezactivare utilizator',
+      
+      // Roluri și permisiuni
+      'CREATE_ROL': 'Creare rol',
+      'UPDATE_ROL': 'Actualizare rol',
+      'DELETE_ROL': 'Ștergere rol',
+      'ASSIGN_ROL': 'Atribuire rol',
+      'REVOKE_ROL': 'Revocare rol',
+      'CREATE_PERMISIUNE': 'Creare permisiune',
+      'UPDATE_PERMISIUNE': 'Actualizare permisiune',
+      'DELETE_PERMISIUNE': 'Ștergere permisiune',
+      
+      // Categorii documente
+      'CREATE_CATEGORIE_DOCUMENT': 'Creare categorie document',
+      'UPDATE_CATEGORIE_DOCUMENT': 'Actualizare categorie document',
+      'DELETE_CATEGORIE_DOCUMENT': 'Ștergere categorie document',
+      
+      // Sistem
+      'SYSTEM_BACKUP': 'Backup sistem',
+      'SYSTEM_RESTORE': 'Restaurare sistem',
+      'SYSTEM_MAINTENANCE': 'Mentenanță sistem',
+      'DATA_EXPORT': 'Export date',
+      'DATA_IMPORT': 'Import date'
+    }
+    
+    return actionMap[action] || action
+  }
+
   const getActionBadgeVariant = (actiune) => {
     if (actiune?.includes('CREATE')) return 'default'
     if (actiune?.includes('UPDATE')) return 'secondary' 
@@ -262,7 +327,7 @@ export default function AuditLogsTable() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={getActionBadgeVariant(log.actiune)}>
-                      {log.actiune}
+                      {getActionDisplayName(log.actiune)}
                     </Badge>
                   </TableCell>
                   <TableCell>
