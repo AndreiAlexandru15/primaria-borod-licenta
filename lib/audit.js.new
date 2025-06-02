@@ -1,0 +1,332 @@
+// lib/audit.js
+// Utility pentru audit logging în aplicația E-Registratură
+// Conform Legii nr. 201/2024 și Ghidul Digitalizării - Arhivele Naționale
+
+import { prisma } from '@/lib/prisma'
+// Importă prisma pentru interacțiunea cu baza de date
+
+// Constante pentru acțiuni de audit
+export const AUDIT_ACTIONS = {  // Utilizatori
+  CREATE_USER: 'CREATE_USER',
+  UPDATE_USER: 'UPDATE_USER',
+  DELETE_USER: 'DELETE_USER',
+  ACTIVATE_USER: 'ACTIVATE_USER',
+  DEACTIVATE_USER: 'DEACTIVATE_USER',
+  LOGIN: 'LOGIN',
+  LOGIN_SUCCESS: 'LOGIN_SUCCESS',
+  LOGIN_FAILED: 'LOGIN_FAILED',
+  LOGOUT: 'LOGOUT',
+  PASSWORD_RESET: 'PASSWORD_RESET',
+  PASSWORD_CHANGE: 'PASSWORD_CHANGE',
+  
+  // Departamente
+  CREATE_DEPARTMENT: 'CREATE_DEPARTMENT',
+  UPDATE_DEPARTMENT: 'UPDATE_DEPARTMENT',
+  DELETE_DEPARTMENT: 'DELETE_DEPARTMENT',
+  
+  // Registre
+  CREATE_REGISTRU: 'CREATE_REGISTRU',
+  UPDATE_REGISTRU: 'UPDATE_REGISTRU',
+  DELETE_REGISTRU: 'DELETE_REGISTRU',
+    // Înregistrări
+  CREATE_INREGISTRARE: 'CREATE_INREGISTRARE',
+  UPDATE_INREGISTRARE: 'UPDATE_INREGISTRARE',
+  DELETE_INREGISTRARE: 'DELETE_INREGISTRARE',
+  FINALIZE_INREGISTRARE: 'FINALIZE_INREGISTRARE',
+  CANCEL_INREGISTRARE: 'CANCEL_INREGISTRARE',
+  
+  // Fișiere și documente
+  UPLOAD_FILE: 'UPLOAD_FILE',
+  DOWNLOAD_FILE: 'DOWNLOAD_FILE',
+  DELETE_FILE: 'DELETE_FILE',
+  UPDATE_FILE: 'UPDATE_FILE',
+  OCR_PROCESS: 'OCR_PROCESS',
+  AI_PROCESS: 'AI_PROCESS',
+  ASSOCIATE_FILE: 'ASSOCIATE_FILE',
+  
+  // Roluri și permisiuni
+  CREATE_ROL: 'CREATE_ROL',
+  UPDATE_ROL: 'UPDATE_ROL',
+  DELETE_ROL: 'DELETE_ROL',
+  ASSIGN_ROL: 'ASSIGN_ROL',
+  REVOKE_ROL: 'REVOKE_ROL',
+  CREATE_PERMISIUNE: 'CREATE_PERMISIUNE',
+  UPDATE_PERMISIUNE: 'UPDATE_PERMISIUNE',
+  DELETE_PERMISIUNE: 'DELETE_PERMISIUNE',    // Categorii și tipuri documente
+  CREATE_CATEGORIE: 'CREATE_CATEGORIE',
+  UPDATE_CATEGORIE: 'UPDATE_CATEGORIE',
+  DELETE_CATEGORIE: 'DELETE_CATEGORIE',
+  CREATE_CATEGORIE_DOCUMENT: 'CREATE_CATEGORIE_DOCUMENT',
+  UPDATE_CATEGORIE_DOCUMENT: 'UPDATE_CATEGORIE_DOCUMENT',
+  DELETE_CATEGORIE_DOCUMENT: 'DELETE_CATEGORIE_DOCUMENT',
+  CREATE_TIP_DOCUMENT: 'CREATE_TIP_DOCUMENT',
+  UPDATE_TIP_DOCUMENT: 'UPDATE_TIP_DOCUMENT',
+  DELETE_TIP_DOCUMENT: 'DELETE_TIP_DOCUMENT',
+  
+  // Sistem
+  SYSTEM_ERROR: 'SYSTEM_ERROR',
+  SYSTEM_CONFIG_CHANGE: 'SYSTEM_CONFIG_CHANGE',
+  SYSTEM_BACKUP: 'SYSTEM_BACKUP',
+  SYSTEM_RESTORE: 'SYSTEM_RESTORE',
+  SYSTEM_MAINTENANCE: 'SYSTEM_MAINTENANCE'
+}
+
+// Constante pentru tipuri de entități
+export const ENTITY_TYPES = {
+  USER: 'USER',
+  DEPARTAMENT: 'DEPARTAMENT',
+  REGISTRU: 'REGISTRU',
+  INREGISTRARE: 'INREGISTRARE',
+  FISIER: 'FISIER',
+  ROL: 'ROL',
+  PERMISIUNE: 'PERMISIUNE',
+  CATEGORIE: 'CATEGORIE',
+  CATEGORIE_DOCUMENT: 'CATEGORIE_DOCUMENT',
+  TIP_DOCUMENT: 'TIP_DOCUMENT',
+  SISTEM: 'SISTEM'
+}
+
+// Funcție pentru crearea unui log de audit
+/**
+ * Creează un log de audit
+ * @param {Object} data - Datele pentru logul de audit
+ * @param {string} data.action - Acțiunea efectuată (din AUDIT_ACTIONS)
+ * @param {string} [data.userId] - ID-ul utilizatorului care a efectuat acțiunea
+ * @param {string} [data.entityType] - Tipul entității (din ENTITY_TYPES)
+ * @param {string} [data.entityId] - ID-ul entității asupra căreia s-a efectuat acțiunea
+ * @param {Object} [data.details] - Detalii suplimentare
+ * @param {Object} [data.oldData] - Datele vechi (pentru acțiuni de actualizare)
+ * @param {Object} [data.newData] - Datele noi (pentru acțiuni de creare/actualizare)
+ * @param {string} [data.ipAddress] - Adresa IP de unde s-a efectuat acțiunea
+ * @param {string} [data.userAgent] - User agent-ul folosit
+ * @returns {Promise<Object>} - Înregistrarea de audit creată
+ */
+export async function createAuditLog(data) {
+  try {
+    const {
+      action,
+      userId,
+      entityType,
+      entityId,
+      details,
+      oldData,
+      newData,
+      ipAddress,
+      userAgent,
+      success = true
+    } = data
+    
+    // Elimină câmpurile cu valori undefined
+    const dbData = {
+      action,
+      userId,
+      entityType,
+      entityId,
+      details,
+      oldData,
+      newData,
+      ipAddress,
+      userAgent,
+      success
+    }
+    
+    // Elimină proprietăți undefined
+    Object.keys(dbData).forEach(key => 
+      dbData[key] === undefined && delete dbData[key]
+    )
+    
+    // Creează logul în baza de date
+    const auditLog = await prisma.auditLog.create({
+      data: dbData
+    })
+    
+    return auditLog
+  } catch (error) {
+    console.error('Eroare la crearea logului de audit:', error)
+    // Salvează într-un jurnal de urgență sau notifică administratorii
+    // Continuă execuția pentru a nu bloca operațiunile utilizatorului
+    return null
+  }
+}
+
+// Helper pentru extragerea informațiilor din Request
+/**
+ * Extrage informații din obiectul Request
+ * @param {Request} req - Obiectul Request
+ * @returns {Object} - Informații extrase (ipAddress, userAgent)
+ */
+export function getRequestInfo(req = null) {
+  let ipAddress = 'unknown'
+  let userAgent = 'unknown'
+  
+  try {
+    if (req) {
+      // Pentru API Routes în Next.js
+      const forwarded = req.headers.get('x-forwarded-for')
+      ipAddress = forwarded ? forwarded.split(',')[0] : req.headers.get('x-real-ip') || 'unknown'
+      userAgent = req.headers.get('user-agent') || 'unknown'
+    }
+  } catch (error) {
+    console.error('Eroare la extragerea informațiilor din request:', error)
+  }
+  
+  return { ipAddress, userAgent }
+}
+
+/**
+ * Creează un log de audit din Request
+ * @param {Request} req - Obiectul Request
+ * @param {Object} auditData - Datele pentru logul de audit
+ * @returns {Promise<Object>} - Înregistrarea de audit creată
+ */
+export async function createAuditLogFromRequest(req, auditData) {
+  try {
+    const { ipAddress, userAgent } = getRequestInfo(req)
+    
+    return await createAuditLog({
+      ...auditData,
+      ipAddress,
+      userAgent
+    })
+  } catch (error) {
+    console.error('Eroare la crearea logului de audit din request:', error)
+    throw error
+  }
+}
+
+/**
+ * Creează un log de audit din Server Component
+ * @param {Object} auditData - Datele pentru logul de audit
+ * @returns {Promise<Object>} - Înregistrarea de audit creată
+ */
+export async function createAuditLogFromServerComponent(auditData) {
+  try {
+    const { ipAddress, userAgent } = getRequestInfo() // No req parameter for app directory
+
+    return await createAuditLog({
+      ...auditData,
+      ipAddress,
+      userAgent
+    })
+  } catch (error) {
+    console.error('Error creating audit log from server component:', error)
+    throw error
+  }
+}
+
+/**
+ * Funcție pentru logarea acțiunilor de autentificare
+ * @param {string} userId - ID-ul utilizatorului
+ * @param {string} action - LOGIN sau LOGOUT
+ * @param {string} [ipAddress] - Adresa IP
+ * @param {string} [userAgent] - User agent
+ * @param {Object} [details] - Detalii suplimentare
+ */
+export async function logAuthAction(userId, action, ipAddress, userAgent, details = {}) {
+  return await createAuditLog({
+    action,
+    userId,
+    entityType: ENTITY_TYPES.USER,
+    entityId: userId,
+    details: {
+      ...details,
+      authAction: true
+    },
+    ipAddress,
+    userAgent
+  })
+}
+
+/**
+ * Funcție pentru logarea acțiunilor asupra fișierelor
+ * @param {string} action - Acțiunea (UPLOAD_FILE, DOWNLOAD_FILE, etc.)
+ * @param {string} userId - ID-ul utilizatorului
+ * @param {string} fisierId - ID-ul fișierului
+ * @param {Object} [details] - Detalii suplimentare
+ * @param {Request} [req] - Request object pentru IP și User Agent
+ */
+export async function logFileAction(action, userId, fisierId, details = {}, req = null) {
+  const { ipAddress, userAgent } = getRequestInfo(req)
+  
+  return await createAuditLog({
+    action,
+    userId,
+    entityType: ENTITY_TYPES.FISIER,
+    entityId: fisierId,
+    details,
+    ipAddress,
+    userAgent
+  })
+}
+
+/**
+ * Funcție pentru logarea acțiunilor generale din sistem, fără referință specifică la o entitate
+ * @param {string} action - Acțiunea efectuată
+ * @param {string} userId - ID-ul utilizatorului care a efectuat acțiunea
+ * @param {Object} details - Detalii despre acțiune
+ * @param {Request} [req] - Request object pentru IP și User Agent
+ */
+export async function logGeneralAction(action, userId, details = {}, req = null) {
+  const { ipAddress, userAgent } = getRequestInfo(req)
+  
+  return await createAuditLog({
+    action,
+    userId, 
+    entityType: ENTITY_TYPES.SISTEM,
+    details,
+    ipAddress,
+    userAgent
+  })
+}
+
+/**
+ * Funcție pentru logarea acțiunilor asupra înregistrărilor
+ * @param {string} action - Acțiunea
+ * @param {string} userId - ID-ul utilizatorului
+ * @param {string} inregistrareId - ID-ul înregistrării
+ * @param {Object} [oldData] - Datele vechi (pentru UPDATE)
+ * @param {Object} [newData] - Datele noi (pentru CREATE/UPDATE)
+ * @param {Object} [details] - Detalii suplimentare
+ * @param {Request} [req] - Request object pentru IP și User Agent
+ */
+export async function logInregistrareAction(action, userId, inregistrareId, oldData, newData, details = {}, req = null) {
+  const { ipAddress, userAgent } = getRequestInfo(req)
+  
+  return await createAuditLog({
+    action,
+    userId,
+    entityType: ENTITY_TYPES.INREGISTRARE,
+    entityId: inregistrareId,
+    oldData,
+    newData,
+    details,
+    ipAddress,
+    userAgent
+  })
+}
+
+/**
+ * Funcție pentru logarea acțiunilor asupra utilizatorilor
+ * @param {string} action - Acțiunea
+ * @param {string} performedByUserId - ID-ul utilizatorului care execută acțiunea
+ * @param {string} targetUserId - ID-ul utilizatorului asupra căruia se execută acțiunea
+ * @param {Object} [oldData] - Datele vechi
+ * @param {Object} [newData] - Datele noi
+ * @param {Object} [details] - Detalii suplimentare
+ * @param {Request} [req] - Request object pentru IP și User Agent
+ */
+export async function logUserAction(action, performedByUserId, targetUserId, oldData, newData, details = {}, req = null) {
+  const { ipAddress, userAgent } = getRequestInfo(req)
+  
+  return await createAuditLog({
+    action,
+    userId: performedByUserId,
+    entityType: ENTITY_TYPES.USER,
+    entityId: targetUserId,
+    oldData,
+    newData,
+    details,
+    ipAddress,
+    userAgent
+  })
+}

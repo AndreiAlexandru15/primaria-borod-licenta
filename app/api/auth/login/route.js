@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { SignJWT } from 'jose'
 import { prisma } from '@/lib/prisma'
+import { createAuditLogFromRequest, AUDIT_ACTIONS } from '@/lib/audit'
 
 /**
  * POST /api/auth/login
@@ -46,29 +47,57 @@ export async function POST(request) {
                 }
               }
             }
-          }
-        }
+          }        }
       }
     })
 
     if (!utilizator) {
+      // Log pentru încercare de login failed - utilizator inexistent
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.LOGIN_FAILED,
+        userId: null, // Nu avem utilizator valid
+        details: {
+          email: email.toLowerCase(),
+          failureReason: 'utilizator_inexistent',
+          timestamp: new Date().toISOString()
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Credențiale invalide' },
         { status: 401 }
       )
-    }
-
-    // Verifică dacă utilizatorul este activ
+    }    // Verifică dacă utilizatorul este activ
     if (!utilizator.activ) {
+      // Log pentru încercare de login failed - cont dezactivat
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.LOGIN_FAILED,
+        userId: utilizator.id,
+        details: {
+          email: email.toLowerCase(),
+          failureReason: 'cont_dezactivat',
+          timestamp: new Date().toISOString()
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Contul este dezactivat' },
         { status: 401 }
       )
-    }
-
-    // Verifică parola
+    }    // Verifică parola
     const parolaValida = await bcrypt.compare(parola, utilizator.parolaHash)
     if (!parolaValida) {
+      // Log pentru încercare de login failed - parola incorectă
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.LOGIN_FAILED,
+        userId: utilizator.id,
+        details: {
+          email: email.toLowerCase(),
+          failureReason: 'parola_incorecta',
+          timestamp: new Date().toISOString()
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Credențiale invalide' },
         { status: 401 }
@@ -105,23 +134,22 @@ export async function POST(request) {
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
       .setExpirationTime('24h')
-      .sign(secret)
-
-    // Actualizează ultima logare
+      .sign(secret)    // Actualizează ultima logare
     await prisma.utilizator.update({
       where: { id: utilizator.id },
       data: { ultimaLogare: new Date() }
     })
 
-    // Log audit pentru login
-    await prisma.auditLog.create({
-      data: {
-        utilizatorId: utilizator.id,
-        actiune: 'LOGIN',
-        detalii: {
-          ip: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent') || 'unknown'
-        }
+    // Log audit pentru login success
+    await createAuditLogFromRequest(request, {
+      action: AUDIT_ACTIONS.LOGIN_SUCCESS,
+      userId: utilizator.id,
+      details: {
+        email: email.toLowerCase(),
+        loginSuccess: true,
+        functie: utilizator.functie,
+        primaria: utilizator.primaria?.nume,
+        timestamp: new Date().toISOString()
       }
     })
 

@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
+import { createAuditLogFromRequest, AUDIT_ACTIONS } from '@/lib/audit'
 
 // Helper function to convert BigInt to String for JSON serialization
 function serializeBigInt(obj) {
@@ -91,13 +92,24 @@ export async function PUT(request, { params }) {
         { error: 'Nu ești autentificat' },
         { status: 401 }
       )
-    }
-
-    // Verifică permisiunile
+    }    // Verifică permisiunile
     const hasPermission = permisiuni.includes('registre_editare') || 
-                         permisiuni.includes('sistem_configurare')
+                         permisiuni.includes('sistem_configurare');
 
     if (!hasPermission) {
+      // Log încercare de editare fără permisiuni
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.UPDATE_REGISTRU,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Acces interzis - lipsă permisiuni',
+          registerId: id,
+          userPermissions: permisiuni,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Nu ai permisiunea să editezi registre' },
         { status: 403 }
@@ -120,11 +132,21 @@ export async function PUT(request, { params }) {
           select: {
             inregistrari: true
           }
-        }
-      }
+        }      }
     })
 
     if (!registruExistent) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.UPDATE_REGISTRU,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Registru negăsit',
+          registerId: id,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Registrul nu a fost găsit' },
         { status: 404 }
@@ -230,21 +252,32 @@ export async function PUT(request, { params }) {
           }
         }
       }
-    })
-
-    // Log audit
-    await prisma.auditLog.create({
-      data: {
-        utilizatorId: userId,
-        actiune: 'REGISTRU_ACTUALIZAT',
-        detalii: {
-          registruId: id,
+    })    // Log audit pentru actualizarea cu succes
+    await createAuditLogFromRequest(request, {
+      action: AUDIT_ACTIONS.UPDATE_REGISTRU,
+      userId: userId,
+      details: {
+        registerId: id,
+        oldData: {
+          nume: registruExistent.nume,
+          cod: registruExistent.cod,
+          descriere: registruExistent.descriere,
+          tipRegistru: registruExistent.tipRegistru,
+          activ: registruExistent.activ
+        },
+        newData: {
           nume: registruActualizat.nume,
-          departamentId: registruActualizat.departamentId,
-          modificari: { nume, cod: dataUpdate.cod, descriere, tipRegistru, activ }
-        }
+          cod: registruActualizat.cod,
+          descriere: registruActualizat.descriere,
+          tipRegistru: registruActualizat.tipRegistru,
+          activ: registruActualizat.activ
+        },
+        changes: dataUpdate,
+        departmentId: registruActualizat.departamentId,
+        departmentName: registruActualizat.departament.nume,
+        primariaId: primariaId
       }
-    })    
+    })
     return NextResponse.json(serializeBigInt({
       success: true,
       message: 'Registru actualizat cu succes',
@@ -276,13 +309,24 @@ export async function DELETE(request, { params }) {
         { error: 'Nu ești autentificat' },
         { status: 401 }
       )
-    }
-
-    // Verifică permisiunile
+    }    // Verifică permisiunile
     const hasPermission = permisiuni.includes('registre_stergere') || 
-                         permisiuni.includes('sistem_configurare')
+                         permisiuni.includes('sistem_configurare');
 
     if (!hasPermission) {
+      // Log încercare de ștergere fără permisiuni
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.DELETE_REGISTRU,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Acces interzis - lipsă permisiuni',
+          registerId: id,
+          userPermissions: permisiuni,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Nu ai permisiunea să ștergi registre' },
         { status: 403 }
@@ -302,16 +346,41 @@ export async function DELETE(request, { params }) {
             inregistrari: true
           }
         }
-      }
-    })
+      }    })
 
     if (!registru) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.DELETE_REGISTRU,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Registru negăsit',
+          registerId: id,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Registrul nu a fost găsit' },
         { status: 404 }
       )
-    }    // Verifică dacă registrul are înregistrări asociate
+    }
+
+    // Verifică dacă registrul are înregistrări asociate
     if (registru._count.inregistrari > 0) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.DELETE_REGISTRU,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Ștergere blocată - registrul are înregistrări asociate',
+          registerId: id,
+          registerName: registru.nume,
+          registrationsCount: registru._count.inregistrari,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { 
           error: `Nu se poate șterge registrul deoarece conține ${registru._count.inregistrari} înregistrar${registru._count.inregistrari > 1 ? 'i' : 'e'}. Ștergeți mai întâi toate înregistrările din registru.`,
@@ -319,22 +388,28 @@ export async function DELETE(request, { params }) {
         },
         { status: 400 }
       )
-    }
-
-    // Șterge registrul
+    }    // Șterge registrul
     await prisma.registru.delete({
       where: { id: id }
     })
 
-    // Log audit
-    await prisma.auditLog.create({
-      data: {
-        utilizatorId: userId,
-        actiune: 'REGISTRU_STERS',
-        detalii: {
-          registruId: id,
-          nume: registru.nume
-        }
+    // Log audit pentru ștergerea cu succes
+    await createAuditLogFromRequest(request, {
+      action: AUDIT_ACTIONS.DELETE_REGISTRU,
+      userId: userId,
+      details: {
+        registerId: id,
+        registerName: registru.nume,
+        registerCode: registru.cod,
+        registerData: {
+          nume: registru.nume,
+          cod: registru.cod,
+          descriere: registru.descriere,
+          tipRegistru: registru.tipRegistru,
+          activ: registru.activ,
+          departamentId: registru.departamentId
+        },
+        primariaId: primariaId
       }
     })
 

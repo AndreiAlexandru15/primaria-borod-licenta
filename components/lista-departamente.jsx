@@ -168,25 +168,24 @@ export function ListaDepartamente() {
           {departamente.map((departament) => (
             <Card 
               key={departament.id} 
-              className="hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => handleVizualizeazaDepartament(departament.id)}
+              className="hover:shadow-md transition-shadow"
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-blue-600" />
                     <CardTitle className="text-lg">{departament.nume}</CardTitle>
-                  </div>                  <DropdownMenu>
+                  </div>
+                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">                      <EditeazaDepartamentModal 
+                    <DropdownMenuContent align="end"><EditeazaDepartamentModal 
                         departament={departament} 
                         trigger={
                           <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
@@ -231,9 +230,19 @@ export function ListaDepartamente() {
                     {departament._count?.documente || 0} documente
                   </Badge>
                 </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                  <span>Click pentru a vizualiza registrele</span>
-                  <ChevronRight className="h-3 w-3" />
+                
+                {/* Buton pentru a accesa registrele */}
+                <div className="pt-2 border-t">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => handleVizualizeazaDepartament(departament.id)}
+                  >
+                    <FolderOpen className="h-4 w-4 mr-2" />
+                    Vezi Registre
+                    <ChevronRight className="h-4 w-4 ml-auto" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>

@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyToken } from '@/lib/auth'
+import { createAuditLogFromRequest, AUDIT_ACTIONS } from '@/lib/audit'
 
 /**
  * POST /api/auth/logout
@@ -15,25 +16,35 @@ export async function POST(request) {
   try {
     // Verifică token-ul din cookie
     const token = request.cookies.get('auth-token')?.value
-    
-    if (token) {
+      if (token) {
       try {
         const decoded = await verifyToken(token)
         
-        // Log audit pentru logout
-        await prisma.auditLog.create({
-          data: {
-            utilizatorId: decoded.utilizatorId,
-            actiune: 'LOGOUT',
-            detalii: {
-              ip: request.headers.get('x-forwarded-for') || 'unknown',
-              userAgent: request.headers.get('user-agent') || 'unknown'
-            }
+        // Log audit pentru logout success
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.LOGOUT,
+          userId: decoded.utilizatorId,
+          details: {
+            email: decoded.email,
+            logoutSuccess: true,
+            sessionDuration: 'unknown', // Poți calcula dacă ai timestamp-ul login-ului
+            timestamp: new Date().toISOString()
           }
         })
       } catch (error) {
         // Token invalid, dar continuăm cu logout
         console.log('Token invalid la logout:', error.message)
+        
+        // Log audit pentru logout cu token invalid
+        await createAuditLogFromRequest(request, {
+          action: AUDIT_ACTIONS.LOGOUT,
+          userId: null,
+          details: {
+            tokenInvalid: true,
+            errorMessage: error.message,
+            timestamp: new Date().toISOString()
+          }
+        })
       }
     }
 

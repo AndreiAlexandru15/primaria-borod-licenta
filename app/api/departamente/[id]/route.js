@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
+import { createAuditLogFromRequest, AUDIT_ACTIONS } from '@/lib/audit'
 
 // Helper function to convert BigInt to String for JSON serialization
 function serializeBigInt(obj) {
@@ -91,13 +92,24 @@ export async function PUT(request, { params }) {
         { error: 'Nu ești autentificat' },
         { status: 401 }
       )
-    }
-
-    // Verifică permisiunile
+    }    // Verifică permisiunile
     const hasPermission = permisiuni.includes('utilizatori_editare') || 
                          permisiuni.includes('sistem_configurare')
 
     if (!hasPermission) {
+      // Log încercare de editare fără permisiuni
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.UPDATE_DEPARTMENT,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Acces interzis - lipsă permisiuni',
+          departmentId: id,
+          userPermissions: permisiuni,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Nu ai permisiunea să editezi departamente' },
         { status: 403 }
@@ -118,11 +130,21 @@ export async function PUT(request, { params }) {
           select: {
             registre: true
           }
-        }
-      }
+        }      }
     })
 
     if (!departamentExistent) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.UPDATE_DEPARTMENT,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Departament negăsit',
+          departmentId: id,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Departamentul nu a fost găsit' },
         { status: 404 }
@@ -257,19 +279,32 @@ export async function PUT(request, { params }) {
           }
         }
       }
-    })
-
-    // Log audit
-    await prisma.auditLog.create({
-      data: {
-        utilizatorId: userId,
-        actiune: 'DEPARTAMENT_ACTUALIZAT',
-        detalii: {
-          departamentId: id,
+    })    // Log audit pentru actualizarea cu succes
+    await createAuditLogFromRequest(request, {
+      action: AUDIT_ACTIONS.UPDATE_DEPARTMENT,
+      userId: userId,
+      details: {
+        departmentId: id,
+        oldData: {
+          nume: departamentExistent.nume,
+          cod: departamentExistent.cod,
+          descriere: departamentExistent.descriere,
+          responsabilId: departamentExistent.responsabilId,
+          telefon: departamentExistent.telefon,
+          email: departamentExistent.email
+        },
+        newData: {
           nume: departamentActualizat.nume,
-          modificari: { nume, cod: dataUpdate.cod, descriere, telefon, email, responsabilId }
-        }
-      }    })
+          cod: departamentActualizat.cod,
+          descriere: departamentActualizat.descriere,
+          responsabilId: departamentActualizat.responsabilId,
+          telefon: departamentActualizat.telefon,
+          email: departamentActualizat.email
+        },
+        changes: dataUpdate,
+        primariaId: primariaId
+      }
+    })
 
     return NextResponse.json(serializeBigInt({
       success: true,
@@ -301,13 +336,24 @@ export async function DELETE(request, { params }) {
       return NextResponse.json(
         { error: 'Nu ești autentificat' },
         { status: 401 }      )
-    }
-
-    // Verifică permisiunile
+    }    // Verifică permisiunile
     const hasPermission = permisiuni.includes('utilizatori_stergere') || 
                          permisiuni.includes('sistem_configurare')
 
     if (!hasPermission) {
+      // Log încercare de ștergere fără permisiuni
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.DELETE_DEPARTMENT,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Acces interzis - lipsă permisiuni',
+          departmentId: id,
+          userPermissions: permisiuni,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Nu ai permisiunea să ștergi departamente' },
         { status: 403 }
@@ -328,18 +374,39 @@ export async function DELETE(request, { params }) {
             registre: true,
             utilizatori: true
           }
-        }
-      }
+        }      }
     })
 
     if (!departament) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.DELETE_DEPARTMENT,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Departament negăsit',
+          departmentId: id,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: 'Departamentul nu a fost găsit' },
         { status: 404 }      )
-    }
-
-    // Verifică dacă departamentul are registre sau utilizatori asociați
+    }    // Verifică dacă departamentul are registre sau utilizatori asociați
     if (departament._count.registre > 0) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.DELETE_DEPARTMENT,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Ștergere blocată - departamentul are registre asociate',
+          departmentId: id,
+          departmentName: departament.nume,
+          registersCount: departament._count.registre,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: `Nu poți șterge departamentul. Are ${departament._count.registre} registre asociate.` },
         { status: 400 }
@@ -347,26 +414,45 @@ export async function DELETE(request, { params }) {
     }
 
     if (departament._count.utilizatori > 0) {
+      await createAuditLogFromRequest(request, {
+        action: AUDIT_ACTIONS.DELETE_DEPARTMENT,
+        userId: userId,
+        success: false,
+        details: {
+          error: 'Ștergere blocată - departamentul are utilizatori asociați',
+          departmentId: id,
+          departmentName: departament.nume,
+          usersCount: departament._count.utilizatori,
+          primariaId: primariaId
+        }
+      })
+      
       return NextResponse.json(
         { error: `Nu poți șterge departamentul. Are ${departament._count.utilizatori} utilizatori asociați.` },
         { status: 400 }
       )
-    }
-
-    // Șterge departamentul
+    }    // Șterge departamentul
     await prisma.departament.delete({
       where: { id: id }
     })
 
-    // Log audit
-    await prisma.auditLog.create({
-      data: {
-        utilizatorId: userId,
-        actiune: 'DEPARTAMENT_STERS',
-        detalii: {
-          departamentId: id,
-          nume: departament.nume
-        }
+    // Log audit pentru ștergerea cu succes
+    await createAuditLogFromRequest(request, {
+      action: AUDIT_ACTIONS.DELETE_DEPARTMENT,
+      userId: userId,
+      details: {
+        departmentId: id,
+        departmentName: departament.nume,
+        departmentCode: departament.cod,
+        departmentData: {
+          nume: departament.nume,
+          cod: departament.cod,
+          descriere: departament.descriere,
+          responsabilId: departament.responsabilId,
+          telefon: departament.telefon,
+          email: departament.email
+        },
+        primariaId: primariaId
       }
     })
 
