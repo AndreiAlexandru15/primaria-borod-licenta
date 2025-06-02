@@ -19,7 +19,9 @@ import TipuriDocumenteTable from "@/components/TipuriDocumenteTable"
 import CategoriiDocumenteTable from "@/components/CategoriiDocumenteTable"
 import AuditLogsTable from "@/components/AuditLogsTable"
 import EditeazaUtilizatorModal from "@/components/editeaza-utilizator-modal"
+import EditRoleDialog from "@/components/editeaza-rol-modal"
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/use-users"
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from "@/hooks/use-roles"
 import { useDepartments } from "@/hooks/use-departments"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -40,9 +42,11 @@ export default function AdminPage() {
   const [isCreateCategorieDialogOpen, setIsCreateCategorieDialogOpen] = useState(false)
   const [isEditCategorieDialogOpen, setIsEditCategorieDialogOpen] = useState(false)
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false)
+  const [isEditRoleDialogOpen, setIsEditRoleDialogOpen] = useState(false)
   const [editingTipDocument, setEditingTipDocument] = useState(null)
   const [editingCategorie, setEditingCategorie] = useState(null)
   const [editingUser, setEditingUser] = useState(null)
+  const [editingRole, setEditingRole] = useState(null)
   const [newUserData, setNewUserData] = useState({
     nume: "",
     prenume: "",
@@ -61,35 +65,11 @@ export default function AdminPage() {
   const createUserMutation = useCreateUser()
   const deleteUserMutation = useDeleteUser()
 
-  // Query pentru roluri
-  const {
-    data: rolesData = [],
-    isLoading: isLoadingRoles,
-    error: rolesError
-  } = useQuery({
-    queryKey: ["roles"],
-    queryFn: async () => {
-      const res = await axios.get("/api/roluri")
-      return res.data.data || []
-    }
-  })
-
-  // Mutation pentru crearea rolurilor
-  const createRoleMutation = useMutation({
-    mutationFn: async (roleData) => {
-      const response = await axios.post("/api/roluri", roleData)
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["roles"] })
-      toast.success("Rolul a fost creat cu succes!")
-      setIsCreateRoleDialogOpen(false)
-    },
-    onError: (error) => {
-      console.error("Error creating role:", error)
-      toast.error(error.response?.data?.message || "Eroare la crearea rolului")
-    }
-  })
+  // Role management hooks
+  const { data: rolesData = [], isLoading: isLoadingRoles, error: rolesError } = useRoles()
+  const createRoleMutation = useCreateRole()
+  const updateRoleMutation = useUpdateRole()
+  const deleteRoleMutation = useDeleteRole()
 
   // Query pentru permisiuni
   const {
@@ -324,15 +304,45 @@ export default function AdminPage() {
       setIsCreateUserDialogOpen(false)
       setNewUserData({ nume: "", prenume: "", email: "", functie: "", telefon: "", parola: "", departamentId: "" })
     } catch (error) {
-      console.error('Error creating user:', error)
-    }
+      console.error('Error creating user:', error)    }
   }
 
   const handleCreateRole = async (roleData) => {
     try {
       await createRoleMutation.mutateAsync(roleData)
+      toast.success("Rolul a fost creat cu succes!")
+      setIsCreateRoleDialogOpen(false)
     } catch (error) {
       console.error('Error creating role:', error)
+      toast.error(error.response?.data?.message || "Eroare la crearea rolului")
+    }
+  }
+
+  const handleEditRole = (role) => {
+    setEditingRole(role)
+    setIsEditRoleDialogOpen(true)
+  }
+  const handleUpdateRole = async (id, data) => {
+    try {
+      await updateRoleMutation.mutateAsync({ id, data })
+      toast.success("Rolul a fost actualizat cu succes!")
+      setIsEditRoleDialogOpen(false)
+      setEditingRole(null)
+    } catch (error) {
+      console.error('Error updating role:', error)
+      toast.error(error.response?.data?.message || "Eroare la actualizarea rolului")
+    }
+  }
+
+  const handleDeleteRole = async (roleId) => {
+    if (window.confirm('Ești sigur că vrei să ștergi acest rol?')) {
+      try {
+        await deleteRoleMutation.mutateAsync(roleId)
+        toast.success("Rolul a fost șters cu succes!")
+      } catch (error) {
+        console.error('Error deleting role:', error)
+        toast.error(error.response?.data?.message || "Eroare la ștergerea rolului")
+      }
     }
   }
 
@@ -560,11 +570,13 @@ export default function AdminPage() {
                   onSubmit={handleCreateRole}
                   isLoading={createRoleMutation.isPending}
                 />
-              </div>
-              <RolesTable
+              </div>              <RolesTable
                 roles={rolesData}
                 isLoading={isLoadingRoles}
                 error={rolesError?.message}
+                handleEditRole={handleEditRole}
+                handleDeleteRole={handleDeleteRole}
+                deleteRoleMutation={deleteRoleMutation}
               />
             </CardContent>
           </Card>
@@ -751,9 +763,7 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
-
-      {/* Edit User Modal */}
+      </Tabs>      {/* Edit User Modal */}
       <EditeazaUtilizatorModal
         utilizator={editingUser}
         isOpen={isEditUserDialogOpen}
@@ -766,6 +776,13 @@ export default function AdminPage() {
           setIsEditUserDialogOpen(false)
           setEditingUser(null)
         }}
+      />      {/* Edit Role Modal */}
+      <EditRoleDialog
+        open={isEditRoleDialogOpen}
+        onOpenChange={setIsEditRoleDialogOpen}
+        onSubmit={(data) => handleUpdateRole(editingRole?.id, data)}
+        isLoading={updateRoleMutation.isPending}
+        role={editingRole}
       />
 
       {/* Edit TipDocument Modal */}

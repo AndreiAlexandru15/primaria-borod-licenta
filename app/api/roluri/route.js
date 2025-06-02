@@ -79,12 +79,12 @@ export async function GET(request) {
 
 /**
  * POST /api/roluri
- * Creează un rol nou
+ * Creează un rol nou cu permisiunile selectate
  */
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { nume, descriere, nivelAcces, sistem } = body
+    const { nume, descriere, nivelAcces, sistem, permisiuni = [] } = body
 
     // Validări
     if (!nume) {
@@ -116,24 +116,62 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // Creează rolul nou
-    const newRole = await prisma.rol.create({
-      data: {
-        nume: nume.trim(),
-        descriere: descriere?.trim() || '',
-        nivelAcces: parseInt(nivelAcces),
-        sistem: Boolean(sistem),
-        activ: true
-      },
-      select: {
-        id: true,
-        nume: true,
-        descriere: true,
-        nivelAcces: true,
-        sistem: true,
-        createdAt: true,
-        updatedAt: true
+    // Creează rolul nou cu permisiunile în tranzacție
+    const newRole = await prisma.$transaction(async (tx) => {
+      // Creează rolul
+      const rol = await tx.rol.create({
+        data: {
+          nume: nume.trim(),
+          descriere: descriere?.trim() || '',
+          nivelAcces: parseInt(nivelAcces),
+          sistem: Boolean(sistem),
+          activ: true
+        }
+      })
+
+      // Adaugă permisiunile dacă sunt specificate
+      if (permisiuni.length > 0) {
+        // Verifică că toate permisiunile există
+        const existingPermissions = await tx.permisiune.findMany({
+          where: {
+            id: { in: permisiuni }
+          }
+        })
+
+        if (existingPermissions.length !== permisiuni.length) {
+          throw new Error('Unele permisiuni nu există în sistem')
+        }
+
+        // Creează relațiile rol-permisiune
+        const rolPermisiuneData = permisiuni.map(permisiuneId => ({
+          rolId: rol.id,
+          permisiuneId: permisiuneId
+        }))
+
+        await tx.rolPermisiune.createMany({
+          data: rolPermisiuneData
+        })
       }
+
+      // Returnează rolul cu permisiunile
+      return await tx.rol.findUnique({
+        where: { id: rol.id },
+        include: {
+          permisiuni: {
+            include: {
+              permisiune: {
+                select: {
+                  id: true,
+                  nume: true,
+                  descriere: true,
+                  modul: true,
+                  actiune: true
+                }
+              }
+            }
+          }
+        }
+      })
     })
 
     return NextResponse.json({ 
@@ -146,7 +184,7 @@ export async function POST(request) {
     console.error('Eroare la crearea rolului:', e)
     return NextResponse.json({ 
       success: false, 
-      error: 'Eroare internă la crearea rolului' 
+      error: e.message || 'Eroare internă la crearea rolului' 
     }, { status: 500 })
   }
 }

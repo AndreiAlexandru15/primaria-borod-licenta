@@ -3,7 +3,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Edit, Trash2 } from "lucide-react"
 
-export default function RolesTable({ roles, isLoading, error }) {
+export default function RolesTable({ 
+  roles, 
+  isLoading, 
+  error, 
+  handleEditRole, 
+  handleDeleteRole, 
+  deleteRoleMutation 
+}) {
   return (
     <Table>
       <TableHeader>
@@ -44,10 +51,27 @@ export default function RolesTable({ roles, isLoading, error }) {
                     <Badge key={p.id} variant="outline">{p.nume}</Badge>
                   ))}
                 </div>
-              </TableCell>
-              <TableCell>
-                <Button variant="ghost" size="sm"><Edit className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="sm"><Trash2 className="h-4 w-4" /></Button>
+              </TableCell>              <TableCell>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleEditRole?.(rol)}
+                    disabled={rol.sistem}
+                    title={rol.sistem ? "Rolurile de sistem nu pot fi editate" : "Editează rolul"}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleDeleteRole?.(rol.id)}
+                    disabled={rol.sistem || deleteRoleMutation?.isPending}
+                    title={rol.sistem ? "Rolurile de sistem nu pot fi șterse" : "Șterge rolul"}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
           ))
