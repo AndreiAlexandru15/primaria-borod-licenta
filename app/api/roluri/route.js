@@ -6,6 +6,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { headers } from 'next/headers'
+import { 
+  createAuditLogFromServerComponent, 
+  AUDIT_ACTIONS, 
+  ENTITY_TYPES 
+} from '@/lib/audit'
 
 // Helper function to convert BigInt to String for JSON serialization
 function serializeBigInt(obj) {
@@ -63,7 +68,7 @@ export async function GET(request) {
       id: rol.id,
       nume: rol.nume,
       descriere: rol.descriere,
-            nivelAcces: rol.nivelAcces,
+      nivelAcces: rol.nivelAcces,
       sistem: rol.sistem,
       createdAt: rol.createdAt,
       updatedAt: rol.updatedAt,
@@ -83,6 +88,9 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
+    const headersList = await headers()
+    const userId = headersList.get('x-user-id')
+    
     const body = await request.json()
     const { nume, descriere, nivelAcces, sistem, permisiuni = [] } = body
 
@@ -173,6 +181,30 @@ export async function POST(request) {
         }
       })
     })
+
+    // Log audit pentru crearea rolului
+    try {
+      await createAuditLogFromServerComponent({
+        action: AUDIT_ACTIONS.CREATE_ROL,
+        userId: userId,
+        entityType: ENTITY_TYPES.ROL,
+        entityId: newRole.id,
+        newData: {
+          nume: newRole.nume,
+          descriere: newRole.descriere,
+          nivelAcces: newRole.nivelAcces,
+          sistem: newRole.sistem,
+          permisiuni: permisiuni
+        },
+        details: {
+          rolName: newRole.nume,
+          permissionCount: permisiuni.length,
+          accessLevel: newRole.nivelAcces
+        }
+      })
+    } catch (auditError) {
+      console.warn('Eroare la logarea audit pentru crearea rolului:', auditError)
+    }
 
     return NextResponse.json({ 
       success: true, 
