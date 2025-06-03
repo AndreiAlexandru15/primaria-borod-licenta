@@ -121,10 +121,30 @@ export default function BackupManagement() {
       toast.success(data.message || 'Baza de date a fost restaurată cu succes!')
       setIsRestoreDialogOpen(false)
       setSelectedBackupForRestore(null)
-    },
-    onError: (error) => {
+    },    onError: (error) => {
       console.error('Error restoring backup:', error)
-      toast.error(error.response?.data?.error || 'Eroare la restaurarea backup-ului')
+      const errorData = error.response?.data
+      
+      if (errorData?.instructions) {
+        // Afișează instrucțiuni pentru instalarea PostgreSQL
+        toast.error(
+          `${errorData.error}: ${errorData.message}`,
+          {
+            description: 'Vezi instrucțiunile în consolă pentru instalare',
+            duration: 8000,
+          }
+        )
+        console.log('=== INSTRUCȚIUNI INSTALARE POSTGRESQL ===')
+        console.log(errorData.message)
+        console.log('\nPașii pentru Windows:')
+        errorData.instructions.windows.forEach((step, index) => {
+          console.log(`${index + 1}. ${step}`)
+        })
+        console.log(`\nAlternativă: ${errorData.instructions.alternative}`)
+        console.log('==========================================')
+      } else {
+        toast.error(errorData?.error || 'Eroare la restaurarea backup-ului')
+      }
     }
   })
 
