@@ -13,13 +13,15 @@ import {
   Settings2,
   Users,
   UserCheck,
-  Command
+  Command,
+  BookOpen
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { useRegisters } from "@/hooks/use-registers"
 import {
   Sidebar,
   SidebarContent,
@@ -124,35 +126,24 @@ const data = {
       title: "Suport",
       url: "/dashboard/suport",
       icon: LifeBuoy,
-    },
-  ],
-  projects: [
-    {
-      name: "Urbanism",
-      url: "/dashboard/e-registratura/1",
-      icon: Building2,
-    },
-    {
-      name: "Financiar",
-      url: "/dashboard/e-registratura/2",
-      icon: BarChart3,
-    },
-    {
-      name: "Resurse Umane",
-      url: "/dashboard/e-registratura/3",
-      icon: Users,
-    },
-    {
-      name: "Juridic",
-      url: "/dashboard/e-registratura/4",
-      icon: UserCheck,
-    },
-  ],
+    },  ],
 }
 
 export function AppSidebar({
   ...props
 }) {
+  const { data: registers = [], isLoading: isLoadingRegisters } = useRegisters()
+  // Transform registers data for NavProjects component
+  const registersForNavigation = registers.map(register => ({
+    id: register.id,
+    name: register.nume,
+    url: `/dashboard/e-registratura/${register.departament.id}/${register.id}`,
+    icon: BookOpen,
+    description: register.descriere,
+    department: register.departament.cod, // show code instead of name
+    count: register._count?.inregistrari || 0
+  }))
+
   return (
     (<Sidebar variant="inset" {...props}>
       <SidebarHeader>
@@ -175,7 +166,10 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavProjects 
+          projects={registersForNavigation} 
+          isLoading={isLoadingRegisters}
+        />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

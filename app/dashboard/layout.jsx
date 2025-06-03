@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { AppSidebar } from "@/components/app-sidebar"
+import { QueryProvider } from "@/components/QueryProvider"
 import {
   SidebarInset,
   SidebarProvider,
@@ -9,11 +10,13 @@ import {
 
 export default function DashboardLayout({ children }) {
     return (
-        <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-                {children}
-            </SidebarInset>
-        </SidebarProvider>
+        <QueryProvider>
+            <SidebarProvider>
+                <AppSidebar />
+                <SidebarInset>
+                    {children}
+                </SidebarInset>
+            </SidebarProvider>
+        </QueryProvider>
     );
 }
