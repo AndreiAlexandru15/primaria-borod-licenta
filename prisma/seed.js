@@ -387,112 +387,123 @@ async function main() {
       });
       categoriiCreate[categorie.id] = categorieCreata;
     }
-    console.log('📁 Categorii documente create')
-
-    // 10. Creează departamentele
-    const departamentAdministrativ = await prisma.departament.create({
+    console.log('📁 Categorii documente create')    // 10. Creează departamentele conform structurii reale Primăria Borod
+    const departamentAdministratie = await prisma.departament.create({
       data: {
-        nume: 'Administrativ',
-        descriere: 'Departament Administrativ și Resurse Umane',
-        cod: 'ADM',
+        nume: 'Activitate administrație publică',
+        descriere: 'Departament pentru administrația publică locală și managementul general',
+        cod: 'AAP',
         primariaId: primariaTest.id
       }
     })
 
-    const departamentContabilitate = await prisma.departament.create({
+    const departamentStareCivila = await prisma.departament.create({
       data: {
-        nume: 'Contabilitate',
-        descriere: 'Departament Contabilitate și Buget',
-        cod: 'CONT',
+        nume: 'Activitate stare civilă',
+        descriere: 'Departament pentru actele de stare civilă - născut, căsătorie, deces',
+        cod: 'ASC',
         primariaId: primariaTest.id
       }
     })
 
-    const departamentRelatiiPublic = await prisma.departament.create({
+    const departamentAgricol = await prisma.departament.create({
       data: {
-        nume: 'Relații cu Publicul',
-        descriere: 'Departament Relații cu Publicul și Comunicare',
-        cod: 'REL',
+        nume: 'Agricol',
+        descriere: 'Departament pentru problemele agricole și dezvoltarea rurală',
+        cod: 'AGR',
         primariaId: primariaTest.id
       }
     })
 
-    console.log('🏢 Departamente create')
-
-    // 11. Creează registrele
-    const registruDeciziePrimar = await prisma.registru.create({
+    const departamentUrbanism = await prisma.departament.create({
       data: {
-        nume: 'Decizie Primar',
-        descriere: 'Registru pentru deciziile primarului',
-        cod: 'DP',
-        tipRegistru: 'iesire',
-        departamentId: departamentAdministrativ.id
+        nume: 'Urbanism-Achiziții Publice',
+        descriere: 'Departament pentru urbanism, autorizații de construire și achiziții publice',
+        cod: 'UAP',
+        primariaId: primariaTest.id
       }
     })
 
-    const registruHotarariCL = await prisma.registru.create({
+    const departamentFinanciar = await prisma.departament.create({
       data: {
-        nume: 'Hotărâri Consiliu Local',
-        descriere: 'Registru pentru hotărârile consiliului local',
-        cod: 'HCL',
-        tipRegistru: 'iesire',
-        departamentId: departamentAdministrativ.id
+        nume: 'Financiar-Contabil',
+        descriere: 'Departament pentru contabilitate, buget și gestiunea financiară',
+        cod: 'FC',
+        primariaId: primariaTest.id
       }
     })
 
-    const registruContabilitate = await prisma.registru.create({
+    console.log('🏢 Departamente Primăria Borod create')    // 11. Creează registrele conform departamentelor Primăria Borod
+    const registruAdministratie = await prisma.registru.create({
       data: {
-        nume: 'Contabilitate',
-        descriere: 'Registru pentru documentele de contabilitate',
-        cod: 'CON',
+        nume: 'Registru Administrație Publică',
+        descriere: 'Registru pentru documentele de administrație publică',
+        cod: 'RAP',
         tipRegistru: 'intrare_iesire',
-        departamentId: departamentContabilitate.id
+        departamentId: departamentAdministratie.id
       }
     })
 
-    const registruCorespondentaCetateni = await prisma.registru.create({
+    const registruStareCivila = await prisma.registru.create({
       data: {
-        nume: 'Corespondența cu Cetățenii',
-        descriere: 'Registru pentru corespondența cu cetățenii',
-        cod: 'COR',
+        nume: 'Registru Stare Civilă',
+        descriere: 'Registru pentru actele de stare civilă',
+        cod: 'RSC',
         tipRegistru: 'intrare_iesire',
-        departamentId: departamentRelatiiPublic.id
+        departamentId: departamentStareCivila.id
       }
     })
 
-    console.log('📋 Registre create')
+    const registruAgricol = await prisma.registru.create({
+      data: {
+        nume: 'Registru Agricol',
+        descriere: 'Registru pentru documentele agricole și dezvoltare rurală',
+        cod: 'RAG',
+        tipRegistru: 'intrare_iesire',
+        departamentId: departamentAgricol.id
+      }
+    })
 
-    // 12. Creează tipurile de documente CU CATEGORII ASOCIATE
+    const registruUrbanism = await prisma.registru.create({
+      data: {
+        nume: 'Registru Urbanism și Achiziții',
+        descriere: 'Registru pentru autorizații urbanism și achiziții publice',
+        cod: 'RUA',
+        tipRegistru: 'intrare_iesire',
+        departamentId: departamentUrbanism.id
+      }
+    })
 
-    // Tipuri documente pentru Decizie Primar
+    const registruFinanciar = await prisma.registru.create({
+      data: {
+        nume: 'Registru Financiar-Contabil',
+        descriere: 'Registru pentru documentele financiar-contabile',
+        cod: 'RFC',
+        tipRegistru: 'intrare_iesire',
+        departamentId: departamentFinanciar.id
+      }
+    })
+
+    console.log('📋 Registre Primăria Borod create')    // 12. Creează tipurile de documente pentru departamentele Primăria Borod
+
+    // Tipuri documente pentru Administrație Publică
     await prisma.tipDocument.create({
       data: {
         nume: 'Dispoziție Primar',
         descriere: 'Dispoziții emise de primar',
         cod: 'DISP',
-        registruId: registruDeciziePrimar.id,
-        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id // ✅ Asociază categoria
+        registruId: registruAdministratie.id,
+        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id
       }
     })
 
-    await prisma.tipDocument.create({
-      data: {
-        nume: 'Ordin Primar',
-        descriere: 'Ordine emise de primar',
-        cod: 'ORD',
-        registruId: registruDeciziePrimar.id,
-        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id // ✅ Asociază categoria
-      }
-    })
-
-    // Tipuri documente pentru Hotărâri Consiliu Local
     await prisma.tipDocument.create({
       data: {
         nume: 'Hotărâre Consiliu Local',
         descriere: 'Hotărâri ale consiliului local',
         cod: 'HCL',
-        registruId: registruHotarariCL.id,
-        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id // ✅ Asociază categoria
+        registruId: registruAdministratie.id,
+        categorieId: categoriiCreate['cat-hotarari-dispozitii'].id
       }
     })
 
@@ -501,109 +512,154 @@ async function main() {
         nume: 'Proces Verbal Ședință',
         descriere: 'Procese verbale ale ședințelor consiliului',
         cod: 'PVS',
-        registruId: registruHotarariCL.id,
-        categorieId: categoriiCreate['cat-procese-verbale'].id // ✅ Asociază categoria
+        registruId: registruAdministratie.id,
+        categorieId: categoriiCreate['cat-procese-verbale'].id
       }
     })
 
-    // Tipuri documente pentru Contabilitate
+    // Tipuri documente pentru Stare Civilă
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Certificat Naștere',
+        descriere: 'Certificate de naștere',
+        cod: 'CN',
+        registruId: registruStareCivila.id,
+        categorieId: categoriiCreate['cat-arhiva-evidente'].id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Certificat Căsătorie',
+        descriere: 'Certificate de căsătorie',
+        cod: 'CC',
+        registruId: registruStareCivila.id,
+        categorieId: categoriiCreate['cat-arhiva-evidente'].id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Certificat Deces',
+        descriere: 'Certificate de deces',
+        cod: 'CD',
+        registruId: registruStareCivila.id,
+        categorieId: categoriiCreate['cat-arhiva-evidente'].id
+      }
+    })
+
+    // Tipuri documente pentru Agricol
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Cerere Subvenție Agricolă',
+        descriere: 'Cereri pentru subvenții agricole',
+        cod: 'CSA',
+        registruId: registruAgricol.id,
+        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Autorizație Agricolă',
+        descriere: 'Autorizații pentru activități agricole',
+        cod: 'AA',
+        registruId: registruAgricol.id,
+        categorieId: categoriiCreate['cat-arhiva-evidente'].id
+      }
+    })
+
+    // Tipuri documente pentru Urbanism-Achiziții
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Autorizație Construire',
+        descriere: 'Autorizații de construire',
+        cod: 'AC',
+        registruId: registruUrbanism.id,
+        categorieId: categoriiCreate['cat-arhiva-evidente'].id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Contract Achiziție Publică',
+        descriere: 'Contracte pentru achiziții publice',
+        cod: 'CAP',
+        registruId: registruUrbanism.id,
+        categorieId: categoriiCreate['cat-contracte-conventii'].id
+      }
+    })
+
+    await prisma.tipDocument.create({
+      data: {
+        nume: 'Certificat Urbanism',
+        descriere: 'Certificate de urbanism',
+        cod: 'CU',
+        registruId: registruUrbanism.id,
+        categorieId: categoriiCreate['cat-arhiva-evidente'].id
+      }
+    })
+
+    // Tipuri documente pentru Financiar-Contabil
     await prisma.tipDocument.create({
       data: {
         nume: 'Factură',
         descriere: 'Facturi și documente de plată',
         cod: 'FACT',
-        registruId: registruContabilitate.id,
-        categorieId: categoriiCreate['cat-financiar-contabile'].id // ✅ Asociază categoria
+        registruId: registruFinanciar.id,
+        categorieId: categoriiCreate['cat-financiar-contabile'].id
       }
     })
 
     await prisma.tipDocument.create({
       data: {
-        nume: 'Contract',
-        descriere: 'Contracte și convenții',
-        cod: 'CONTR',
-        registruId: registruContabilitate.id,
-        categorieId: categoriiCreate['cat-contracte-conventii'].id // ✅ Asociază categoria
+        nume: 'Ordin de Plată',
+        descriere: 'Ordine de plată',
+        cod: 'OP',
+        registruId: registruFinanciar.id,
+        categorieId: categoriiCreate['cat-financiar-contabile'].id
       }
     })
 
     await prisma.tipDocument.create({
       data: {
-        nume: 'Raport Financiar',
-        descriere: 'Rapoarte și situații financiare',
-        cod: 'RAF',
-        registruId: registruContabilitate.id,
-        categorieId: categoriiCreate['cat-financiar-contabile'].id // ✅ Asociază categoria
-      }
-    })
-
-    // Tipuri documente pentru Corespondența cu Cetățenii
-    await prisma.tipDocument.create({
-      data: {
-        nume: 'Sesizare',
-        descriere: 'Sesizări din partea cetățenilor',
-        cod: 'SES',
-        registruId: registruCorespondentaCetateni.id,
-        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
+        nume: 'Situație Financiară',
+        descriere: 'Situații financiare și rapoarte contabile',
+        cod: 'SF',
+        registruId: registruFinanciar.id,
+        categorieId: categoriiCreate['cat-financiar-contabile'].id
       }
     })
 
     await prisma.tipDocument.create({
       data: {
-        nume: 'Cerere',
-        descriere: 'Cereri din partea cetățenilor',
-        cod: 'CER',
-        registruId: registruCorespondentaCetateni.id,
-        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
+        nume: 'Buget Local',
+        descriere: 'Documente privind bugetul local',
+        cod: 'BL',
+        registruId: registruFinanciar.id,
+        categorieId: categoriiCreate['cat-financiar-contabile'].id
       }
     })
 
-    await prisma.tipDocument.create({
-      data: {
-        nume: 'Plângere',
-        descriere: 'Plângeri din partea cetățenilor',
-        cod: 'PLA',
-        registruId: registruCorespondentaCetateni.id,
-        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
-      }
-    })
+    console.log('📝 Tipuri documente pentru Primăria Borod create cu categorii asociate')
 
-    await prisma.tipDocument.create({
-      data: {
-        nume: 'Comunicat',
-        descriere: 'Comunicate către cetățeni',
-        cod: 'COM',
-        registruId: registruCorespondentaCetateni.id,
-        categorieId: categoriiCreate['cat-corespondenta-institutii'].id // ✅ Asociază categoria
-      }
-    })
-
-    await prisma.tipDocument.create({
-      data: {
-        nume: 'Răspuns',
-        descriere: 'Răspunsuri la solicitările cetățenilor',
-        cod: 'RASP',
-        registruId: registruCorespondentaCetateni.id,
-        categorieId: categoriiCreate['cat-corespondenta-cetateni'].id // ✅ Asociază categoria
-      }
-    })
-
-    console.log('📝 Tipuri documente create cu categorii asociate')
-
-    console.log('\n✅ Seed complet cu succes!')
+    console.log('\n✅ Seed complet cu succes pentru Primăria Borod!')
     console.log('\n📋 Utilizatori de test creați:')
     console.log('1. Super Admin: admin@sector1.ro / parola123')
     console.log('2. Administrator: manager@sector1.ro / parola123')
     console.log('3. Operator: operator@sector1.ro / parola123')
-    console.log('\n🏢 Departamente create:')
-    console.log('1. Administrativ (ADM)')
-    console.log('2. Contabilitate (CONT)')
-    console.log('3. Relații cu Publicul (REL)')
-    console.log('\n📋 Registre create cu tipuri de documente:')
-    console.log('1. Decizie Primar: Dispoziție Primar, Ordin Primar')
-    console.log('2. Hotărâri Consiliu Local: Hotărâre CL, Proces Verbal Ședință')
-    console.log('3. Contabilitate: Factură, Contract, Raport Financiar')
-    console.log('4. Corespondența cu Cetățenii: Sesizare, Cerere, Plângere, Comunicat, Răspuns')
+    console.log('\n🏢 Departamente Primăria Borod create:')
+    console.log('1. Activitate administrație publică (AAP)')
+    console.log('2. Activitate stare civilă (ASC)')
+    console.log('3. Agricol (AGR)')
+    console.log('4. Urbanism-Achiziții Publice (UAP)')
+    console.log('5. Financiar-Contabil (FC)')
+    console.log('\n📋 Registre create pentru fiecare departament:')
+    console.log('1. Administrație: Dispoziții Primar, Hotărâri CL, Procese Verbale')
+    console.log('2. Stare Civilă: Certificate Naștere, Căsătorie, Deces')
+    console.log('3. Agricol: Cereri Subvenții, Autorizații Agricole')
+    console.log('4. Urbanism: Autorizații Construire, Contracte Achiziții, Certificate Urbanism')
+    console.log('5. Financiar: Facturi, Ordine Plată, Situații Financiare, Buget Local')
     console.log('\n📁 Categorii de documente create:')
     console.log('1. Hotărâri și Dispoziții (50 ani)')
     console.log('2. Contracte și Convenții (10 ani)')
@@ -612,7 +668,7 @@ async function main() {
     console.log('5. Documente financiar-contabile (10 ani)')
     console.log('6. Procese verbale (10 ani)')
     console.log('7. Arhivă și Evidențe speciale (100 ani)')
-    console.log('\n🔗 Relații tip document - categorie create corect!')
+    console.log('\n🔗 Relații tip document - categorie create corect pentru Primăria Borod!')
     
   } catch (error) {
     console.error('❌ Eroare în timpul seed-ului:', error)

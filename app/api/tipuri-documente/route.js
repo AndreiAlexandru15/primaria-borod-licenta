@@ -266,15 +266,13 @@ export async function PUT(request) {
             nume: true,
             cod: true
           }
-        },
-        categorie: {
+        },        categorie: {
           select: {
             id: true,
             nume: true,
             cod: true,
             descriere: true,
-            perioadaRetentie: true,
-            culoare: true
+            perioadaRetentie: true
           }
         }
       }

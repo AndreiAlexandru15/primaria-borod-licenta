@@ -36,8 +36,7 @@ export default function RolesTable({
         ) : roles.length === 0 ? (
           <TableRow>
             <TableCell colSpan={7}>Nu există roluri.</TableCell>
-          </TableRow>
-        ) : (
+          </TableRow>        ) : (
           roles.map(rol => (
             <TableRow key={rol.id}>
               <TableCell>{rol.nume}</TableCell>
@@ -51,7 +50,8 @@ export default function RolesTable({
                     <Badge key={p.id} variant="outline">{p.nume}</Badge>
                   ))}
                 </div>
-              </TableCell>              <TableCell>
+              </TableCell>
+              <TableCell>
                 <div className="flex space-x-2">
                   <Button 
                     variant="ghost" 

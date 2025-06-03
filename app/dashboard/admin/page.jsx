@@ -12,6 +12,7 @@ import AdaugaTipDocumentModal from "@/components/adauga-tip-document-modal"
 import EditeazaTipDocumentModal from "@/components/editeaza-tip-document-modal"
 import AdaugaCategorieDocumentModal from "@/components/adauga-categorie-modal"
 import EditeazaCategorieDocumentModal from "@/components/editeaza-categorie-modal"
+import BackupManagement from "@/components/backup-management"
 import UsersTable from "@/components/UsersTable"
 import RolesTable from "@/components/RolesTable"
 import PermissionsTable from "@/components/PermissionsTable"
@@ -696,72 +697,9 @@ export default function AdminPage() {
               <AuditLogsTable />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Backup Tab */}
+        </TabsContent>        {/* Backup Tab */}
         <TabsContent value="backup" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Gestionare Back-up
-              </CardTitle>
-              <CardDescription>Administrează copiile de siguranță ale sistemului</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex space-x-2">
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Backup Manual
-                  </Button>
-                  <Button variant="outline">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Restaurează
-                  </Button>
-                </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nume Fișier</TableHead>
-                    <TableHead>Dimensiune</TableHead>
-                    <TableHead>Creat</TableHead>
-                    <TableHead>Tip</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Acțiuni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {backups.map((backup) => (
-                    <TableRow key={backup.id}>
-                      <TableCell className="font-medium">{backup.name}</TableCell>
-                      <TableCell>{backup.size}</TableCell>
-                      <TableCell>{backup.created}</TableCell>
-                      <TableCell>
-                        <Badge variant={backup.type === "Automatic" ? "default" : "secondary"}>
-                          {backup.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="default">{backup.status}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <BackupManagement />
         </TabsContent>
       </Tabs>      {/* Edit User Modal */}
       <EditeazaUtilizatorModal
