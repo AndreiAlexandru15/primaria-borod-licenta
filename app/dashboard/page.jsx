@@ -1,14 +1,9 @@
 "use client"
 
-import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
 import { ListaInregistrari } from "@/components/lista-inregistrari"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
@@ -48,71 +43,59 @@ export default function Page() {
   }, [registers, registerId])
 
   
-
   return (
-    (<SidebarProvider
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)"
-        }
-      }>
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <SectionCards />
-              <div className="px-4 lg:px-6">
-                <ChartAreaInteractive />
+    <div className="flex flex-1 flex-col">
+      <SiteHeader />
+      <div className="@container/main flex flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+          <SectionCards />
+          <div className="px-4 lg:px-6">
+            <ChartAreaInteractive />
+          </div>
+          <div className="px-4 lg:px-6">
+            {/* Filtre pentru departamente și register ID */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="department-select">Departament</Label>
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger id="department-select">
+                    <SelectValue placeholder="Selectează departamentul" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toate departamentele</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id.toString()}>
+                        {dept.nume || dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="px-4 lg:px-6">
-                {/* Filtre pentru departamente și register ID */}
-                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="department-select">Departament</Label>
-                    <Select value={departmentId} onValueChange={setDepartmentId}>
-                      <SelectTrigger id="department-select">
-                        <SelectValue placeholder="Selectează departamentul" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Toate departamentele</SelectItem>
-                        {departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id.toString()}>
-                            {dept.nume || dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="register-select">Register ID</Label>
-                    <Select value={registerId} onValueChange={setRegisterId}>
-                      <SelectTrigger id="register-select">
-                        <SelectValue placeholder="Selectează registrul" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Toate registrele</SelectItem>
-                        {registers.map((register) => (
-                          <SelectItem key={register.id} value={register.id.toString()}>
-                            {register.name || `Register ${register.id}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <ListaInregistrari 
-                  ref={listaRef} 
-                  departmentId={departmentId === "all" ? "" : departmentId} 
-                  registerId={registerId === "all" ? "" : registerId} 
-                />
+              <div className="space-y-2">
+                <Label htmlFor="register-select">Register ID</Label>
+                <Select value={registerId} onValueChange={setRegisterId}>
+                  <SelectTrigger id="register-select">
+                    <SelectValue placeholder="Selectează registrul" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toate registrele</SelectItem>
+                    {registers.map((register) => (
+                      <SelectItem key={register.id} value={register.id.toString()}>
+                        {register.name || `Register ${register.id}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
+            <ListaInregistrari 
+              ref={listaRef} 
+              departmentId={departmentId === "all" ? "" : departmentId} 
+              registerId={registerId === "all" ? "" : registerId} 
+            />
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>)
+      </div>
+    </div>
   );
 }
