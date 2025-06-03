@@ -9,38 +9,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { useState, useEffect, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useDepartments } from "@/hooks/use-departments"
 import axios from "axios"
 
 export default function Page() {
-  const [departmentId, setDepartmentId] = useState("")
   const [registerId, setRegisterId] = useState("")
-  const listaRef = useRef(null)
-
-  // Folosește hook-ul pentru departamente
-  const { data: departments = [], isLoading: departmentsLoading, error: departmentsError } = useDepartments()
-
-  // Fetch registers using tanstack-query
-  const { data: registers = [], isLoading: registersLoading } = useQuery({
+  const listaRef = useRef(null)  // Fetch registers using tanstack-query
+  const { data: registersResponse, isLoading: registersLoading, error: registersError } = useQuery({
     queryKey: ['registers'],
     queryFn: async () => {
-      const response = await axios.get('/api/registers')
+      const response = await axios.get('/api/registru?toate=true')
       return response.data
-    }
+    },
+    retry: 3,
+    retryDelay: 1000
   })
 
+  const registers = registersResponse?.data || []
+  // Debug logging
+  useEffect(() => {
+    if (registersError) {
+      console.error('Error loading registers:', registersError)
+    }
+    if (registersResponse) {
+      console.log('Registers response:', registersResponse)
+      console.log('Registers array:', registers)
+      console.log('Registers length:', registers.length)
+    }
+  }, [registersError, registersResponse, registers])
   // Set default values when data is loaded
   useEffect(() => {
-    if (departments.length > 0 && !departmentId) {
-      setDepartmentId(departments[0].id.toString())
-    }
-  }, [departments, departmentId])
-
-  useEffect(() => {
+    console.log('Setting default register. Registers length:', registers.length, 'Current registerId:', registerId)
     if (registers.length > 0 && !registerId) {
+      console.log('Setting first register:', registers[0])
       setRegisterId(registers[0].id.toString())
     }
   }, [registers, registerId])
+
 
   
   return (
@@ -51,47 +55,46 @@ export default function Page() {
           <SectionCards />
           <div className="px-4 lg:px-6">
             <ChartAreaInteractive />
-          </div>
-          <div className="px-4 lg:px-6">
-            {/* Filtre pentru departamente și register ID */}
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="department-select">Departament</Label>
-                <Select value={departmentId} onValueChange={setDepartmentId}>
-                  <SelectTrigger id="department-select">
-                    <SelectValue placeholder="Selectează departamentul" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toate departamentele</SelectItem>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept.id} value={dept.id.toString()}>
-                        {dept.nume || dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          </div>          <div className="px-4 lg:px-6">
+            {/* Filtru pentru register ID */}            <div className="mb-6">
+              <div className="space-y-2 w-64">
+                <Label htmlFor="register-select">Register</Label>
+                {registersLoading ? (
+                  <div className="text-sm text-muted-foreground">Se încarcă registrele...</div>
+                ) : (                  <Select value={registerId} onValueChange={setRegisterId}>
+                    <SelectTrigger id="register-select" className="w-full">
+                      <SelectValue 
+                        placeholder="Selectează registrul"
+                        className="truncate"
+                      >
+                        <span className="truncate">
+                          {registerId && registers.find(r => r.id.toString() === registerId)?.nume || "Selectează registrul"}
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger><SelectContent className="max-w-none w-auto min-w-[300px]">
+                      {registers.map((register) => (
+                        <SelectItem 
+                          key={register.id} 
+                          value={register.id.toString()}
+                          className="max-w-none"
+                        >
+                          <div className="flex flex-col items-start py-1">
+                            <span className="font-medium">
+                              {register.nume || `Register ${register.id}`}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {register.departament?.cod || 'Fără departament'}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="register-select">Register ID</Label>
-                <Select value={registerId} onValueChange={setRegisterId}>
-                  <SelectTrigger id="register-select">
-                    <SelectValue placeholder="Selectează registrul" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Toate registrele</SelectItem>
-                    {registers.map((register) => (
-                      <SelectItem key={register.id} value={register.id.toString()}>
-                        {register.name || `Register ${register.id}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <ListaInregistrari 
+            </div><ListaInregistrari 
               ref={listaRef} 
-              departmentId={departmentId === "all" ? "" : departmentId} 
-              registerId={registerId === "all" ? "" : registerId} 
+              registerId={registerId} 
             />
           </div>
         </div>

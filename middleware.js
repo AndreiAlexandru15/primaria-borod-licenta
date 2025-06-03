@@ -14,7 +14,7 @@ const PUBLIC_ROUTES = ['/login', '/api/auth/login', '/api/auth/logout']
 /**
  * Rutele API care necesită autentificare
  */
-const PROTECTED_API_ROUTES = ['/api/utilizatori', '/api/documente', '/api/departamente']
+const PROTECTED_API_ROUTES = ['/api/utilizatori', '/api/documente', '/api/departamente', '/api/registru']
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl
