@@ -11,7 +11,7 @@ import { existsSync } from 'fs'
 import { mkdir, copyFile } from 'fs/promises'
 import crypto from 'crypto'
 
-// Funcție helper pentru sanitizarea numelor de foldere
+// Funcție helper pentru sanitizarea numelui de foldere
 function sanitizeFolderName(name) {
   return name
     .replace(/[<>:"/\\|?*]/g, '_') // Înlocuiește caracterele interzise cu _
@@ -253,9 +253,29 @@ export async function GET(request, { params }) {
         marime: true,
         tipMime: true,
         caleRelativa: true,
-        dataCreare: true,
+        createdAt: true,
+        updatedAt: true,
         dataFisier: true,
-        inregistrareId: true
+        inregistrareId: true,
+        categorieId: true,
+        hashFisier: true,
+        scanat: true,
+        ocrProcesat: true,
+        continutText: true,
+        miniaturaPath: true,
+        subiect: true,
+        confidentialitate: true,
+        prioritate: true,
+        termene: true,
+        codBare: true,
+        qrCode: true,
+        metadate: true,
+        inregistrare: true,
+        categorie: true,
+        auditLog: true,
+        istoric: true,
+        procesariAI: true,
+        _count: true
       }
     })
 

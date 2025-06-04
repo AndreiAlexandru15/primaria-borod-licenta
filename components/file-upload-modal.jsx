@@ -159,6 +159,11 @@ export function FileUploadModal({ isOpen, onOpenChange, onUploadComplete }) {
     }
   };
 
+  const truncateText = (text, maxLength = 32) => {
+    if (!text) return '';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
   const pendingFilesCount = uploadedFiles.filter(f => f.status === "pending").length;
   const successFilesCount = uploadedFiles.filter(f => f.status === "success").length;
   const errorFilesCount = uploadedFiles.filter(f => f.status === "error").length;
@@ -259,7 +264,9 @@ export function FileUploadModal({ isOpen, onOpenChange, onUploadComplete }) {
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">{fileData.name}</p>
+                        <p className="text-sm font-medium truncate max-w-[180px]" title={fileData.name}>
+                          {truncateText(fileData.name, 32)}
+                        </p>
                         <span className="text-xs text-gray-500">
                           {formatFileSize(fileData.size)}
                         </span>

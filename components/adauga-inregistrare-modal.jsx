@@ -546,15 +546,12 @@ export function AdaugaInregistrareModal({
 
   return (
     <Dialog open={modalIsOpen} onOpenChange={setModalIsOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button>
-            <Upload className="w-4 h-4 mr-2" />
-            Adaugă înregistrare
-          </Button>
-        )}
-      </DialogTrigger>
-      
+      {/* Afișează DialogTrigger doar dacă există trigger explicit */}
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Adaugă înregistrare nouă</DialogTitle>

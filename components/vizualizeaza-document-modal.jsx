@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 
 import {
   Dialog,
@@ -40,6 +41,8 @@ const VizualizeazaDocumentModal = ({
   onRefresh
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [fisierDetalii, setFisierDetalii] = useState(null);
+
   // Construiește URL-ul pentru document
   const getDocumentUrl = () => {
     if (documentProp?.caleRelativa && documentProp?.numeFisierDisk) {
@@ -52,6 +55,7 @@ const VizualizeazaDocumentModal = ({
     const baseUrl = getDocumentUrl();
     return baseUrl ? `${baseUrl}?download=true` : null;
   };
+
   const handleDownload = () => {
     const downloadUrl = getDownloadUrl();
     if (downloadUrl) {
@@ -72,6 +76,7 @@ const VizualizeazaDocumentModal = ({
       window.open(documentUrl, '_blank');
     }
   };
+
   const handleEdit = () => {
     if (onEdit) {
       onEdit(documentProp);
@@ -115,6 +120,22 @@ const VizualizeazaDocumentModal = ({
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
+
+  useEffect(() => {
+    async function fetchFisierDetalii() {
+      if (documentProp?.id) {
+        try {
+          const response = await axios.get(`/api/fisiere/${documentProp.id}`);
+          if (response.data.success) {
+            setFisierDetalii(response.data.data);
+          }
+        } catch (e) {
+          setFisierDetalii(null);
+        }
+      }
+    }
+    if (isOpen) fetchFisierDetalii();
+  }, [documentProp?.id, isOpen]);
 
   return (
     <>
@@ -290,6 +311,20 @@ const VizualizeazaDocumentModal = ({
                         <p className="text-sm text-gray-600 whitespace-pre-wrap">
                           {documentProp.descriere}
                         </p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Subiect extras din fișier */}
+                  {fisierDetalii?.subiect && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Subiect extras</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-xs text-gray-700 whitespace-pre-line max-h-60 overflow-y-auto bg-gray-50 p-3 rounded border leading-relaxed break-words" style={{ fontFamily: 'inherit', wordBreak: 'break-word', lineHeight: '1.7', letterSpacing: '0.01em' }}>
+                          {fisierDetalii.subiect}
+                        </div>
                       </CardContent>
                     </Card>
                   )}

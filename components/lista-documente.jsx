@@ -30,12 +30,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Search, 
-  Filter, 
-  FileText, 
-  Calendar, 
-  Hash, 
+import {
+  Search,
+  Filter,
+  FileText,
+  Calendar,
+  Hash,
   FolderOpen,
   ArrowUpDown,
   ArrowUp,
@@ -46,18 +46,20 @@ import {
   Trash2,
   EllipsisVertical,
   Plus,
-  Upload
+  Upload,
 } from "lucide-react";
 
 // Import componentele pentru vizualizare și upload
-import { VizualizeazaDocumentModal } from './vizualizeaza-document-modal';
-import { FileUploadModal } from './file-upload-modal';
-import { AdaugaInregistrareModal } from './adauga-inregistrare-modal';
+import { VizualizeazaDocumentModal } from "./vizualizeaza-document-modal";
+import { FileUploadModal } from "./file-upload-modal";
+import { AdaugaInregistrareModal } from "./adauga-inregistrare-modal";
+import { ConfirmDeleteModal } from "./confirm-delete-modal";
+import { notifySuccess } from "@/lib/notifications";
 
 export function ListaDocumente({ externalUploadModalState }) {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  
+
   // Use external state if provided, otherwise use internal state
   const [internalShowUploadModal, setInternalShowUploadModal] = useState(false);
   const showUploadModal = externalUploadModalState?.showUploadModal ?? internalShowUploadModal;
@@ -166,16 +168,23 @@ export function ListaDocumente({ externalUploadModalState }) {
     console.log("Editare document:", doc);
   };
 
-  const handleDelete = async (docId) => {
+  const [deleteModal, setDeleteModal] = useState({ open: false, docId: null });
+
+  const handleDelete = (docId) => {
+    setDeleteModal({ open: true, docId });
+  };
+
+  const confirmDelete = async () => {
     try {
-      // TODO: Implementează API-ul pentru ștergere
-      const response = await axios.delete(`/api/fisiere/${docId}`);
+      const response = await axios.delete(`/api/fisiere/${deleteModal.docId}`);
       if (response.data.success) {
-        refetch(); // Refresh lista după ștergere
+        refetch();
+        notifySuccess('Documentul a fost șters cu succes!');
       }
     } catch (error) {
-      console.error("Eroare la ștergerea documentului:", error);
-      throw error;
+      console.error('Eroare la ștergerea documentului:', error);
+    } finally {
+      setDeleteModal({ open: false, docId: null });
     }
   };  const handleRegister = (doc) => {
     console.log("Înregistrare document:", doc);
@@ -189,6 +198,7 @@ export function ListaDocumente({ externalUploadModalState }) {
       setSelectedDocumentForRegistration(null);
       // Refresh the data when modal closes (in case document was registered)
       refetch();
+      notifySuccess("Documentul a fost înregistrat cu succes!");
     }
   };
 
@@ -514,6 +524,16 @@ export function ListaDocumente({ externalUploadModalState }) {
         allowDepartmentSelection={true} // Enable department/registry selection from documents page
         allowFileRemoval={false} // Disable file removal for pre-existing files
         trigger={null} // Nu afișa butonul default
+      />
+
+      {/* Modal de confirmare ștergere */}
+      <ConfirmDeleteModal
+        isOpen={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, docId: null })}
+        onConfirm={confirmDelete}
+        title="Confirmă ștergerea documentului"
+        description="Ești sigur că vrei să ștergi acest document? Această acțiune nu poate fi anulată."
+        isDangerous={true}
       />
     </div>
   );
