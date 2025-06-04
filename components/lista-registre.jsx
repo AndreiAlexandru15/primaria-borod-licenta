@@ -45,18 +45,34 @@ import axios from "axios"
 // Skeleton pentru tabel
 function TableSkeleton() {
   return (
-    <div className="space-y-3">
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex items-center space-x-4">
-          <Skeleton className="h-4 w-[200px]" />
-          <Skeleton className="h-4 w-[100px]" />
-          <Skeleton className="h-4 w-[300px]" />
-          <Skeleton className="h-4 w-[80px]" />
-          <Skeleton className="h-4 w-[80px]" />
-          <Skeleton className="h-8 w-[100px]" />
-        </div>
-      ))}
-    </div>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Nume</TableHead>
+          <TableHead>Cod</TableHead>
+          <TableHead>Descriere</TableHead>
+          <TableHead>Înregistrări</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>An</TableHead>
+          <TableHead>Data creării</TableHead>
+          <TableHead className="text-right">Acțiuni</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {[...Array(5)].map((_, i) => (
+          <TableRow key={i}>
+            <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[40px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[40px]" /></TableCell>
+            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+            <TableCell className="text-right"><Skeleton className="h-8 w-[90px] rounded-md" /></TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
 

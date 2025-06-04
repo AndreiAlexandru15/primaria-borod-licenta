@@ -17,20 +17,17 @@ import { Upload, Send, Bot, User, Paperclip, X, MessageCircle } from "lucide-rea
 
 const AiChatBubble = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'ai',
-      content: 'Salut! Sunt aici să te ajut. Poți să-mi pui întrebări sau să încarci documente pentru analiză.',
+      content: 'Salut! Sunt aici să te ajut. Poți să-mi pui întrebări.',
       timestamp: new Date(),
     }
   ]);
   const [inputValue, setInputValue] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   // Auto-scroll la ultimul mesaj
   const scrollToBottom = () => {
@@ -79,51 +76,16 @@ const AiChatBubble = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Generează un session ID unic când se deschide chat-ul pentru prima dată
-  const generateSessionId = () => {
-    return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  };
-
-  // Inițializează session ID când se deschide modalul
-  const handleOpenChange = (open) => {
-    setIsOpen(open);
-    if (open && !sessionId) {
-      const newSessionId = generateSessionId();
-      setSessionId(newSessionId);
-      console.log('Session ID generat:', newSessionId);
-    }
-  };
-
   const suggestions = [
-    "Poți să analizezi documentul încărcat?",
     "Care sunt punctele cheie din acest text?",
-    "Fă un rezumat al documentului",
+    "Fă un rezumat al textului",
     "Explică-mi conținutul în termeni simpli"
-  ];  const sendToAPI = async (message, files) => {
+  ];  const sendToAPI = async (message) => {
     try {
       const formData = new FormData();
-        // Adaugă mesajul și metadata
       formData.append('message', message);
       formData.append('timestamp', new Date().toISOString());
       formData.append('userAgent', navigator.userAgent);
-      formData.append('sessionId', sessionId || generateSessionId());
-      
-      // Adaugă fișierele atașate cu informații suplimentare
-      if (files && files.length > 0) {
-        console.log(`Trimit ${files.length} fișiere către API:`, files.map(f => ({
-          name: f.name,
-          size: f.size,
-          type: f.type
-        })));
-        
-        files.forEach((file, index) => {
-          formData.append(`file_${index}`, file);
-          formData.append(`file_${index}_name`, file.name);
-          formData.append(`file_${index}_size`, file.size.toString());
-          formData.append(`file_${index}_type`, file.type);
-        });
-        formData.append('filesCount', files.length.toString());
-      }
       
       // Apelează API-ul local
       console.log('Trimit cerere către /api/ai/chat...');
@@ -152,26 +114,23 @@ const AiChatBubble = () => {
     }
   };
   const handleSendMessage = async () => {
-    if (!inputValue.trim() && uploadedFiles.length === 0) return;
+    if (!inputValue.trim()) return;
     if (isSending) return; // Previne trimiterea multiplă
 
     const newMessage = {
       id: Date.now(),
       type: 'user',
       content: inputValue,
-      files: uploadedFiles.length > 0 ? [...uploadedFiles] : null,
       timestamp: new Date(),
     };
 
     setMessages(prev => [...prev, newMessage]);
     const currentInput = inputValue;
-    const currentFiles = [...uploadedFiles];
     setInputValue('');
-    setUploadedFiles([]);
     setIsSending(true);
     setIsTyping(true);    try {
       // Trimite către API
-      const apiResponse = await sendToAPI(currentInput, currentFiles);
+      const apiResponse = await sendToAPI(currentInput);
       console.log('Răspuns primit de la API:', apiResponse);
       
       // Formatează răspunsul AI
@@ -179,7 +138,7 @@ const AiChatBubble = () => {
       
       // Fallback dacă nu găsim textul formatat
       const finalResponseText = responseText || 
-        `Am primit mesajul tău${currentFiles.length > 0 ? ' și documentele atașate' : ''}. Datele au fost procesate cu succes.`;
+        `Am primit mesajul tău. Datele au fost procesate cu succes.`;
       
       console.log('Text final pentru afișare:', finalResponseText);
       
@@ -203,87 +162,26 @@ const AiChatBubble = () => {
       setIsSending(false);
     }
   };
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files);
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/gif',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    ];
-    
-    const maxFileSize = 10 * 1024 * 1024; // 10MB
-    
-    const validFiles = files.filter(file => {
-      if (!allowedTypes.includes(file.type)) {
-        console.warn(`Tip de fișier neacceptat: ${file.name} (${file.type})`);
-        return false;
-      }
-      if (file.size > maxFileSize) {
-        console.warn(`Fișier prea mare: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-        return false;
-      }
-      return true;
-    });
-    
-    if (validFiles.length !== files.length) {
-      // Afișează o notificare pentru utilizator despre fișierele respinse
-      const rejectedCount = files.length - validFiles.length;
-      console.error(`${rejectedCount} fișier(e) au fost respins(e) din cauza tipului sau dimensiunii nepermise.`);
-    }
-    
-    console.log('Fișiere valide încărcate:', validFiles.map(f => ({
-      name: f.name,
-      size: `${(f.size / 1024 / 1024).toFixed(2)}MB`,
-      type: f.type
-    })));
-    
-    setUploadedFiles(prev => [...prev, ...validFiles]);
-    
-    // Reset file input
-    event.target.value = '';
-  };
-
-  const removeFile = (index) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSuggestionClick = (suggestion) => {
-    setInputValue(suggestion);
-  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button className="flex items-center gap-2 h-12 w-12 rounded-full fixed bottom-6 right-6 z-50 bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors">
           <MessageCircle className="w-8 h-8" />
         </Button>
-      </DialogTrigger>        <DialogContent className="max-w-3xl max-h-[90vh] h-[80vh] flex flex-col p-0">
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[90vh] h-[80vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
           <DialogTitle className="flex items-center gap-2">
             <Bot className="w-5 h-5" />
             Chat cu AI Assistant
           </DialogTitle>
-          <DialogDescription>
-            Poți să-mi pui întrebări sau să încarci documente pentru analiză.
-            {sessionId && (
-              <span className="block text-xs text-muted-foreground mt-1">
-                Session ID: {sessionId}
-              </span>
-            )}
-          </DialogDescription>
         </DialogHeader>
-        
         <div className="flex-1 flex flex-col min-h-0">
           {/* Zona de mesaje cu scroll */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
-            <div className="space-y-4">              {messages.map((message) => (
+            <div className="space-y-4">
+              {messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -301,16 +199,6 @@ const AiChatBubble = () => {
                         <div className="text-sm whitespace-pre-wrap leading-relaxed">
                           {message.content}
                         </div>
-                        {message.files && (
-                          <div className="mt-2 space-y-1">
-                            {message.files.map((file, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                <Paperclip className="w-3 h-3 mr-1" />
-                                {file.name}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
                         <p className="text-xs opacity-70 mt-1">
                           {message.timestamp.toLocaleTimeString()}
                         </p>
@@ -351,34 +239,11 @@ const AiChatBubble = () => {
                       key={index}
                       variant="outline"
                       size="sm"
-                      onClick={() => handleSuggestionClick(suggestion)}
+                      onClick={() => setInputValue(suggestion)}
                       className="text-xs"
                     >
                       {suggestion}
                     </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Fișiere încărcate */}
-            {uploadedFiles.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Fișiere încărcate:</p>
-                <div className="flex flex-wrap gap-2">
-                  {uploadedFiles.map((file, index) => (
-                    <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                      <Paperclip className="w-3 h-3" />
-                      {file.name}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-4 w-4 p-0 hover:bg-transparent"
-                        onClick={() => removeFile(index)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
                   ))}
                 </div>
               </div>
@@ -401,26 +266,10 @@ const AiChatBubble = () => {
                     }}
                     className="flex-1"
                   />
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    multiple
-                    accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                    className="hidden"
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isSending}
-                  >
-                    <Upload className="w-4 h-4" />
-                  </Button>
                   <Button 
                     onClick={handleSendMessage} 
                     size="icon" 
-                    disabled={isSending || (!inputValue.trim() && uploadedFiles.length === 0)}
+                    disabled={isSending || !inputValue.trim()}
                   >
                     <Send className="w-4 h-4" />
                   </Button>

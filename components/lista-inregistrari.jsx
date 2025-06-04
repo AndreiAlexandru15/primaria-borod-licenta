@@ -235,7 +235,7 @@ const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
   },
 ]
 
-export const ListaInregistrari = forwardRef(function ListaInregistrari({ departmentId, registerId }, ref) {
+export const ListaInregistrari = forwardRef(function ListaInregistrari({ departmentId, registerId, headerAction }, ref) {
   const router = useRouter()
   const queryClient = useQueryClient()
   
@@ -424,17 +424,39 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
             <Skeleton className="h-6 w-[200px]" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="flex items-center space-x-4">
-                  <Skeleton className="h-4 w-[100px]" />
-                  <Skeleton className="h-4 w-[80px]" />
-                  <Skeleton className="h-4 w-[150px]" />
-                  <Skeleton className="h-4 w-[200px]" />
-                  <Skeleton className="h-4 w-[120px]" />
-                  <Skeleton className="h-4 w-[80px]" />
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Nr. Înregistrare</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Data Înregistrare</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Număr Document</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Data Document</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Expeditor</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Destinatar</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Obiect</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Confidențialitate</th>
+                    <th className="px-2 py-2 text-left text-xs font-semibold text-muted-foreground">Status</th>
+                    <th className="px-2 py-2 text-right text-xs font-semibold text-muted-foreground">Acțiuni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...Array(8)].map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[100px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[120px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[100px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[120px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[120px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[120px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[200px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[100px]" /></td>
+                      <td className="px-2 py-2"><Skeleton className="h-4 w-[80px]" /></td>
+                      <td className="px-2 py-2 text-right"><Skeleton className="h-8 w-[90px] rounded-md" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
@@ -482,12 +504,18 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
                     Adaugă Prima Înregistrare
                   </Button>
                 }
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId] })
+                }}
               />
             </div>
           </CardContent>
         </Card>
       ) : (
         <div>
+          {headerAction && (
+            <div className="flex justify-end mb-2">{headerAction}</div>
+          )}
           <DataTable 
             data={tableData} 
             columns={columns}
