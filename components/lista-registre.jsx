@@ -172,31 +172,7 @@ export function ListaRegistre({ departmentId }) {
 
   return (
     <div className="space-y-6 mt-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold mb-2">
-          {departament?.nume || 'Departament'}
-        </h1>
-        <div className="flex flex-wrap gap-4 items-center mb-4">
-          <p className="text-muted-foreground">
-            Gestionează registrele pentru acest departament
-          </p>
-          <div className="flex items-center gap-2">
-            <label htmlFor="an-select" className="text-sm font-medium">An:</label>
-            <select
-              id="an-select"
-              className="border rounded px-2 py-1 text-sm"
-              value={selectedYear}
-              onChange={e => setSelectedYear(Number(e.target.value))}
-            >
-              {aniDisponibili.map(an => (
-                <option key={an} value={an}>{an}</option>
-              ))}
-            </select>
-          </div>
-          <AdaugaRegistruModal departmentId={departmentId} />
-        </div>
-      </div>
+
      
       {registre.length === 0 ? (
         <Card>
