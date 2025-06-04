@@ -54,10 +54,16 @@ import { VizualizeazaDocumentModal } from './vizualizeaza-document-modal';
 import { FileUploadModal } from './file-upload-modal';
 import { AdaugaInregistrareModal } from './adauga-inregistrare-modal';
 
-export function ListaDocumente() {
+export function ListaDocumente({ externalUploadModalState }) {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const [internalShowUploadModal, setInternalShowUploadModal] = useState(false);
+  const showUploadModal = externalUploadModalState?.showUploadModal ?? internalShowUploadModal;
+  const setShowUploadModal = externalUploadModalState?.setShowUploadModal ?? setInternalShowUploadModal;
+
+  // State pentru modalul de înregistrare
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [selectedDocumentForRegistration, setSelectedDocumentForRegistration] = useState(null);
 
@@ -234,25 +240,15 @@ export function ListaDocumente() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header cu buton de upload */}
+    <div className="space-y-6">      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
           <h2 className="text-2xl font-semibold tracking-tight">Documente</h2>
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary">
-            {filteredData.length} {filteredData.length === 1 ? 'document' : 'documente'}
-          </Badge>
-          <Button 
-            onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2"
-          >
-            <Upload className="h-4 w-4" />
-            Upload documente
-          </Button>
-        </div>
+        <Badge variant="secondary">
+          {filteredData.length} {filteredData.length === 1 ? 'document' : 'documente'}
+        </Badge>
       </div>
 
       {/* Filtere */}
@@ -506,7 +502,9 @@ export function ListaDocumente() {
         isOpen={showUploadModal}
         onOpenChange={setShowUploadModal}
         onUploadComplete={handleUploadComplete}
-      />      {/* Modal de înregistrare document */}
+      />
+
+      {/* Modal de înregistrare document */}
       <AdaugaInregistrareModal
         preExistingFile={selectedDocumentForRegistration}
         isOpen={showRegistrationModal}
@@ -515,6 +513,7 @@ export function ListaDocumente() {
         registruId={null} // TODO: Pass proper registry ID when available
         allowDepartmentSelection={true} // Enable department/registry selection from documents page
         allowFileRemoval={false} // Disable file removal for pre-existing files
+        trigger={null} // Nu afișa butonul default
       />
     </div>
   );

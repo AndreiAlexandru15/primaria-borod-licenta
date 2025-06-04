@@ -1,7 +1,9 @@
 /**
- * Pagina registrelor pentru un departament specific
- * @fileoverview Afișează registrele unui departament
+ * Pagina documentelor
+ * @fileoverview Afișează lista documentelor cu posibilitatea de upload
  */
+
+"use client"
 
 import {
   Breadcrumb,
@@ -14,13 +16,12 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import { ListaRegistre } from "@/components/lista-registre"
-import { AdaugaRegistruModal } from "@/components/adauga-registru-modal"
+import { Upload } from "lucide-react"
 import { ListaDocumente } from "@/components/lista-documente"
+import { useState } from "react"
 
-export default async function Documente({ params }) {
-  const { departmentId } = await params
+export default function Documente() {
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
   return (
     <div>
@@ -41,20 +42,25 @@ export default async function Documente({ params }) {
                   <BreadcrumbLink href="/dashboard/e-registratura">
                     E-Registratură
                   </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
+                </BreadcrumbItem>                <BreadcrumbSeparator className="hidden md:block" />
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Registre</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
+                  <BreadcrumbPage>Documente</BreadcrumbPage>
+                </BreadcrumbItem>              </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <AdaugaRegistruModal departmentId={departmentId} />
-         
+          <Button 
+            onClick={() => setShowUploadModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            Upload documente
+          </Button>
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <ListaDocumente />
+        <ListaDocumente 
+          externalUploadModalState={{ showUploadModal, setShowUploadModal }}
+        />
       </div>
     </div>
   )

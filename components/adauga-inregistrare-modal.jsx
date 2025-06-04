@@ -562,7 +562,7 @@ export function AdaugaInregistrareModal({
           <form onSubmit={handleSubmit} className="space-y-4">
           {/* Department and Registry Selection (when enabled) */}
           {allowDepartmentSelection && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Department Selection */}
               <div className="space-y-1">
                 <Label htmlFor="departament" className="text-sm">
@@ -577,18 +577,19 @@ export function AdaugaInregistrareModal({
                   }}
                   required
                 >
-                  <SelectTrigger className="text-sm h-10">
-                    <SelectValue placeholder="Selectează departamentul" />
+                  <SelectTrigger className="text-sm h-10 w-full max-w-[420px] truncate">
+                    <SelectValue placeholder="Selectează departamentul" className="truncate max-w-[360px]" />
                   </SelectTrigger>
                   <SelectContent>
                     {departamente.map(dept => (
-                      <SelectItem key={dept.id} value={dept.id} className="text-sm">
-                        {dept.nume}
+                      <SelectItem key={dept.id} value={dept.id} className="text-sm truncate max-w-[360px]">
+                        <span className="truncate block max-w-[360px]">{dept.nume}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>              {/* Registry Selection */}
+              </div>
+              {/* Registry Selection */}
               <div className="space-y-1">
                 <Label htmlFor="registru" className="text-sm">
                   Registru <span className="text-red-500">*</span>
@@ -596,14 +597,13 @@ export function AdaugaInregistrareModal({
                 <Select
                   value={selectedRegistruId || ''}
                   onValueChange={(value) => {
-                    console.log('Registry selected:', value)
                     setSelectedRegistruId(value)
                     setFormData(prev => ({ ...prev, tipDocumentId: '' })) // Reset document type
                   }}
                   required
                   disabled={!selectedDepartamentId || registreLoading}
                 >
-                  <SelectTrigger className="text-sm h-10">
+                  <SelectTrigger className="text-sm h-10 w-full max-w-[420px] truncate">
                     <SelectValue placeholder={
                       !selectedDepartamentId 
                         ? "Selectează primul departamentul" 
@@ -612,12 +612,12 @@ export function AdaugaInregistrareModal({
                         : registre.length === 0 
                         ? "Nu există registre disponibile"
                         : "Selectează registrul"
-                    } />
+                    } className="truncate max-w-[360px]" />
                   </SelectTrigger>
                   <SelectContent>
                     {registre.map(reg => (
-                      <SelectItem key={reg.id} value={reg.id} className="text-sm">
-                        {reg.nume}
+                      <SelectItem key={reg.id} value={reg.id} className="text-sm truncate max-w-[360px]">
+                        <span className="truncate block max-w-[360px]">{reg.nume}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
