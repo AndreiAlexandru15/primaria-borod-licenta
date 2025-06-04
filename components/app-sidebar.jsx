@@ -22,6 +22,7 @@ import { NavProjects } from "@/components/nav-projects"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import { useRegisters } from "@/hooks/use-registers"
+import { useCurrentUser } from "@/hooks/use-current-user"
 import {
   Sidebar,
   SidebarContent,
@@ -33,11 +34,6 @@ import {
 } from "@/components/ui/sidebar"
 
 const data = {
-  user: {
-    name: "Administrator",
-    email: "admin@sector1.ro",
-    avatar: "/avatars/admin.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -132,7 +128,8 @@ const data = {
 export function AppSidebar({
   ...props
 }) {
-  const { data: registers = [], isLoading: isLoadingRegisters } = useRegisters()
+  const { data: registers = [], isLoading: isLoadingRegisters } = useRegisters();
+  const { user, loading } = useCurrentUser();
   // Transform registers data for NavProjects component
   const registersForNavigation = registers.map(register => ({
     id: register.id,
@@ -173,7 +170,17 @@ export function AppSidebar({
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        {loading ? (
+          <span className="text-xs text-muted-foreground px-4 py-2">Se încarcă utilizatorul...</span>
+        ) : user ? (
+          <NavUser user={{
+            name: user.nume + (user.prenume ? ' ' + user.prenume : ''),
+            email: user.email,
+            avatar: user.avatar || undefined
+          }} />
+        ) : (
+          <span className="text-xs text-muted-foreground px-4 py-2">Nu ești autentificat</span>
+        )}
       </SidebarFooter>
     </Sidebar>)
   );
