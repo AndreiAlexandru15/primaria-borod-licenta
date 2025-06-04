@@ -488,16 +488,7 @@ export default function AdminPage() {
           <h1 className="text-3xl font-bold">Panou de Administrare</h1>
           <p className="text-muted-foreground">Gestionează utilizatorii, rolurile și permisiunile sistemului</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Adaugă
-          </Button>
-        </div>
+        
       </div>
 
       {/* Stats Cards */}
