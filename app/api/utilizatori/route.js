@@ -98,7 +98,14 @@ export async function POST(request) {
     const userId = headersList.get('x-user-id')
     const primariaId = headersList.get('x-primaria-id')
 
+    console.log('POST /api/utilizatori - Headers:', {
+      userId,
+      primariaId,
+      hasAuth: !!userId && !!primariaId
+    })
+
     if (!userId || !primariaId) {
+      console.log('Authentication failed - missing headers')
       return NextResponse.json(
         { error: 'Nu ești autentificat' },
         { status: 401 }
@@ -106,10 +113,21 @@ export async function POST(request) {
     }
 
     const body = await request.json()
+    console.log('POST /api/utilizatori - Request body:', {
+      ...body,
+      parola: body.parola ? '[HIDDEN]' : undefined
+    })
+
     const { nume, prenume, email, functie, telefon, parola, departamentId } = body
 
     // Validare date obligatorii
     if (!nume || !prenume || !email || !parola) {
+      console.log('Validation failed - missing required fields:', {
+        hasNume: !!nume,
+        hasPrenume: !!prenume,
+        hasEmail: !!email,
+        hasParola: !!parola
+      })
       return NextResponse.json(
         { error: 'Nume, prenume, email și parola sunt obligatorii' },
         { status: 400 }
@@ -186,9 +204,13 @@ export async function POST(request) {
       success: true,
       data: newUser,
       message: 'Utilizator creat cu succes'
+    })  } catch (error) {
+    console.error('Eroare la crearea utilizatorului:', {
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+      meta: error.meta
     })
-  } catch (error) {
-    console.error('Eroare la crearea utilizatorului:', error)
     
     // Log audit pentru eroarea de creare
     try {
@@ -206,8 +228,16 @@ export async function POST(request) {
       console.error('Eroare la logarea auditului:', auditError)
     }
     
+    // Return more specific error information for debugging
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Email-ul este deja folosit de alt utilizator' },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Eroare internă de server' },
+      { error: 'Eroare internă de server', details: error.message },
       { status: 500 }
     )
   }

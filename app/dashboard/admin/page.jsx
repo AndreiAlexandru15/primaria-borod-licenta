@@ -301,11 +301,22 @@ export default function AdminPage() {
 
   const handleCreateUser = async () => {
     try {
+      // Debug: Log the data being sent
+      console.log('Creating user with data:', newUserData)
+      console.log('Required fields check:', {
+        nume: !!newUserData.nume,
+        prenume: !!newUserData.prenume,
+        email: !!newUserData.email,
+        parola: !!newUserData.parola
+      })
+      
       await createUserMutation.mutateAsync(newUserData)
       setIsCreateUserDialogOpen(false)
       setNewUserData({ nume: "", prenume: "", email: "", functie: "", telefon: "", parola: "", departamentId: "" })
     } catch (error) {
-      console.error('Error creating user:', error)    }
+      console.error('Error creating user:', error)
+      console.error('Error response:', error.response?.data)
+    }
   }
 
   const handleCreateRole = async (roleData) => {
