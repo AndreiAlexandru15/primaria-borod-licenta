@@ -206,6 +206,22 @@ export function ListaDocumente({ externalUploadModalState }) {
     refetch(); // Refresh lista după upload
   };
 
+  // PAGINATION STATE
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Calculate paginated data
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / pageSize));
+  const paginatedData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return sortedData.slice(start, start + pageSize);
+  }, [sortedData, page, pageSize]);
+
+  // Reset page if filters change and page is out of range
+  React.useEffect(() => {
+    if (page > totalPages) setPage(1);
+  }, [sortedData, page, totalPages]);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -252,7 +268,7 @@ export function ListaDocumente({ externalUploadModalState }) {
   return (
     <div className="space-y-6">      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mt-6">
           <FileText className="h-5 w-5" />
           <h2 className="text-2xl font-semibold tracking-tight">Documente</h2>
         </div>
@@ -338,8 +354,8 @@ export function ListaDocumente({ externalUploadModalState }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedData.length > 0 ? (
-              sortedData.map((doc, index) => (
+            {paginatedData.length > 0 ? (
+              paginatedData.map((doc, index) => (
                 <TableRow 
                   key={doc.id} 
                   className={`hover:bg-muted/50 transition-colors ${
@@ -415,10 +431,6 @@ export function ListaDocumente({ externalUploadModalState }) {
                             <Eye className="mr-2 h-4 w-4" />
                             Vizualizează
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEdit(doc)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editează
-                          </DropdownMenuItem>
                           
                           {/* Opțiunea de înregistrare doar pentru documente neînregistrate */}
                           {!doc.inregistrareId && (
@@ -476,26 +488,44 @@ export function ListaDocumente({ externalUploadModalState }) {
         </Table>
       </div>
 
-      {/* Footer cu statistici */}
+      {/* PAGINATION CONTROLS */}
       {sortedData.length > 0 && (
-        <>
-          <Separator />
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <span>Afișează {sortedData.length} din {data?.length || 0} documente</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span>Înregistrate: {sortedData.filter(d => d.inregistrareId).length}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span>Neînregistrate: {sortedData.filter(d => !d.inregistrareId).length}</span>
-              </div>
-            </div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+          {/* Page size selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Afișează</span>
+            <Select value={String(pageSize)} onValueChange={val => { setPageSize(Number(val)); setPage(1); }}>
+              <SelectTrigger className="w-[80px] h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">/ pagină</span>
           </div>
-        </>
+          {/* Pagination buttons */}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>
+              Prima
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              Anterior
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Pagina {page} din {totalPages}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              Următoarea
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>
+              Ultima
+            </Button>
+          </div>
+        </div>
       )}
 
       {/* Modal de vizualizare document */}

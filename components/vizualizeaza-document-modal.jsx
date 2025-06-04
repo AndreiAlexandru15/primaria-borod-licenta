@@ -19,7 +19,6 @@ import {
   FileText, 
   Calendar, 
   User, 
-  Edit,
   Trash2,
   X,
   Plus,
@@ -346,13 +345,6 @@ const VizualizeazaDocumentModal = ({
                 <Button variant="default" onClick={handleRegister}>
                   <Plus className="h-4 w-4 mr-2" />
                   Înregistrează
-                </Button>
-              )}
-              
-              {onEdit && (
-                <Button variant="outline" onClick={handleEdit}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editează
                 </Button>
               )}
               
