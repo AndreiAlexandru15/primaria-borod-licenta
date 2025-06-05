@@ -495,41 +495,43 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
         )}
       </div>
       {/* DataTable pentru înregistrări */}
-      {tableData.length === 0 ? (
-        <Card>
-          <CardContent className="p-8">
-            <div className="text-center">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Nicio înregistrare</h3>
-              <p className="text-muted-foreground mb-4">
-                Nu există înregistrări în acest registru.
-              </p>
-              <AdaugaInregistrareModal 
-                departamentId={departmentId}
-                registruId={registerId}
-                trigger={
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adaugă Prima Înregistrare
-                  </Button>
-                }
-                onSuccess={() => {
-                  queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId] })
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div>
-          <DataTable 
-            data={tableData} 
-            columns={columns}
-            searchKey="obiect"
-            searchPlaceholder="Caută în obiect..."
-          />
-        </div>
-      )}
+      <div className="w-full overflow-x-auto max-w-full" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {tableData.length === 0 ? (
+          <Card>
+            <CardContent className="p-8">
+              <div className="text-center">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Nicio înregistrare</h3>
+                <p className="text-muted-foreground mb-4">
+                  Nu există înregistrări în acest registru.
+                </p>
+                <AdaugaInregistrareModal 
+                  departamentId={departmentId}
+                  registruId={registerId}
+                  trigger={
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adaugă Prima Înregistrare
+                    </Button>
+                  }
+                  onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId] })
+                  }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="min-w-[600px] md:min-w-0">
+            <DataTable 
+              data={tableData} 
+              columns={columns}
+              searchKey="obiect"
+              searchPlaceholder="Caută în obiect..."
+            />
+          </div>
+        )}
+      </div>
 
       {/* Modaluri */}
       <VizualizeazaInregistrareModal

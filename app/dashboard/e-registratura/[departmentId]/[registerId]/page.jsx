@@ -28,11 +28,12 @@ export default function RegistruInregistrariPage({ params }) {
 
   return (
     <div>
-      <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 z-10 bg-background border-b">
-        <div className="flex items-center justify-between w-full px-4">
-          <div className="flex items-center gap-2">
+      <header className="sticky top-0 z-10 bg-background border-b">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full px-2 sm:px-4 py-2 gap-4">
+          {/* Stânga: breadcrumb */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
             <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+            <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4 hidden sm:block" />
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
@@ -59,31 +60,36 @@ export default function RegistruInregistrariPage({ params }) {
               </BreadcrumbList>
             </Breadcrumb>
           </div>
-          <div className="flex gap-2 items-center">
-            <Select value={exportFormat} onValueChange={setExportFormat}>
-              <SelectTrigger className="">
-                <SelectValue placeholder="Format export" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="excel">Excel (.xlsx)</SelectItem>
-                <SelectItem value="csv">CSV (.csv)</SelectItem>
-                <SelectItem value="pdf">PDF (.pdf)</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={() => listaRef.current?.handleExport && listaRef.current.handleExport(exportFormat)}>
-              <Download className="h-4 w-4 mr-2" />
-              Export
-            </Button>
-            <AdaugaInregistrareModal 
-              departamentId={departmentId} 
-              registruId={registerId} 
-              trigger={
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adaugă Înregistrare
-                </Button>
-              }
-            />
+          {/* Dreapta: acțiuni */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full sm:w-auto justify-end">
+            <div className="flex gap-2 items-center w-full sm:w-auto">
+              <Select value={exportFormat} onValueChange={setExportFormat}>
+                <SelectTrigger className="w-full sm:w-auto">
+                  <SelectValue placeholder="Format export" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="excel">Excel (.xlsx)</SelectItem>
+                  <SelectItem value="csv">CSV (.csv)</SelectItem>
+                  <SelectItem value="pdf">PDF (.pdf)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => listaRef.current?.handleExport && listaRef.current.handleExport(exportFormat)}>
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+            <div className="w-full sm:w-auto">
+              <AdaugaInregistrareModal 
+                departamentId={departmentId} 
+                registruId={registerId} 
+                trigger={
+                  <Button className="w-full sm:w-auto">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adaugă Înregistrare
+                  </Button>
+                }
+              />
+            </div>
           </div>
         </div>
       </header>
