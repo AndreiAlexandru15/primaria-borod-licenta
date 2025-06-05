@@ -75,12 +75,11 @@ const AiChatBubble = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
-
   const suggestions = [
-    "Care sunt punctele cheie din acest text?",
-    "Fă un rezumat al textului",
-    "Explică-mi conținutul în termeni simpli"
-  ];  const sendToAPI = async (message) => {
+    "Trimite un email la...",
+    "Spune-mi rezumatul documentului",
+    "Spune-mi care este ultimul număr de înregistrare din registrul"
+  ];const sendToAPI = async (message) => {
     try {
       const formData = new FormData();
       formData.append('message', message);
