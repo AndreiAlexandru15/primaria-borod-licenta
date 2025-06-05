@@ -481,6 +481,8 @@ export default function AdminPage() {
   ]
 
   return (
+              <div className="@container/main flex flex-1 flex-col gap-2">
+
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -746,6 +748,7 @@ export default function AdminPage() {
         confidentialitati={confidentialitatiData}
         isLoadingConfidentialitati={isLoadingConfidentialitati}
       />
+    </div>
     </div>
   )
 }
