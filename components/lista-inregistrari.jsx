@@ -38,6 +38,7 @@ import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal"
 import { EditeazaInregistrareModal } from "@/components/editeaza-inregistrare-modal"
 import { VizualizeazaInregistrareModal } from "@/components/vizualizeaza-inregistrare-modal"
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal"
+import { notifyLoading, notifySuccess, notifyError, dismissNotification } from "@/lib/notifications"
 import axios from "axios"
 
 // Definirea coloanelor pentru DataTable
@@ -238,12 +239,12 @@ const getColumns = (formatDate, getStatusBadge, onView, onEdit, onDelete) => [
 export const ListaInregistrari = forwardRef(function ListaInregistrari({ departmentId, registerId, headerAction }, ref) {
   const router = useRouter()
   const queryClient = useQueryClient()
-  
-  // State pentru modaluri
+    // State pentru modaluri
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [selectedInregistrare, setSelectedInregistrare] = useState(null)
+  const [loadingToastId, setLoadingToastId] = useState(null)
   
   // Query pentru înregistrări din registru
   const { 
@@ -332,8 +333,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
     setSelectedInregistrare(inregistrare)
     setDeleteModalOpen(true)
   }
-  
-  // Mutation pentru ștergerea înregistrării
+    // Mutation pentru ștergerea înregistrării
   const deleteInregistrareMutation = useMutation({
     mutationFn: async (id) => {
       const response = await axios.delete(`/api/inregistrari/${id}`)
@@ -342,13 +342,37 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
       }
       return response.data
     },
+    onMutate: async () => {
+      // Afișează notificarea de loading
+      const toastId = notifyLoading('Se șterge înregistrarea...')
+      setLoadingToastId(toastId)
+    },
     onSuccess: () => {
+      // Închide notificarea de loading
+      if (loadingToastId) {
+        dismissNotification(loadingToastId)
+        setLoadingToastId(null)
+      }
+      
+      // Afișează notificarea de success
+      notifySuccess(`Înregistrarea #${selectedInregistrare?.numarInregistrare} a fost ștearsă cu succes!`)
+      
       // Invalidate all queries for this register's inregistrari (robust pattern)
       queryClient.invalidateQueries({ queryKey: ['inregistrari', 'registru', registerId], exact: false })
       setDeleteModalOpen(false)
       setSelectedInregistrare(null)
     },
     onError: (error) => {
+      // Închide notificarea de loading
+      if (loadingToastId) {
+        dismissNotification(loadingToastId)
+        setLoadingToastId(null)
+      }
+      
+      // Afișează notificarea de error
+      const errorMessage = error.response?.data?.error || error.message || 'Eroare necunoscută la ștergerea înregistrării'
+      notifyError(`Eroare la ștergerea înregistrării: ${errorMessage}`)
+      
       console.error('Eroare la ștergerea înregistrării:', error)
     }
   })
@@ -364,7 +388,6 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
   
   // Stare pentru formatul de export selectat
   const [exportFormat, setExportFormat] = useState("excel")
-
   // Funcție pentru export cu format selectabil
   const handleExport = async (formatOverride) => {
     const formatToUse = formatOverride || "excel";
@@ -392,9 +415,13 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
+      
+      // Notificare de success pentru export
+      notifySuccess(`Lista de înregistrări a fost exportată cu succes în format ${formatToUse.toUpperCase()}!`)
     } catch (error) {
       console.error('Eroare la export:', error)
-      // Poți adăuga aici o notificare de eroare
+      const errorMessage = error.response?.data?.error || error.message || 'Eroare necunoscută la exportul listei'
+      notifyError(`Eroare la exportul listei: ${errorMessage}`)
     }
   }
   
