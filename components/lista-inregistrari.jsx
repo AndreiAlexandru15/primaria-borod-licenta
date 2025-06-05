@@ -522,7 +522,7 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
             </CardContent>
           </Card>
         ) : (
-          <div className="min-w-[600px] md:min-w-0">
+          <div className="min-w-[600px] md:min-w-0 overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
             <DataTable 
               data={tableData} 
               columns={columns}

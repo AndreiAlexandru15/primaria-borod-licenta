@@ -89,21 +89,20 @@ export function DataTable({
       },
     },
   })
-
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 py-4">
         <Input
           placeholder={searchPlaceholder}
           value={(table.getColumn(searchKey)?.getFilterValue()) ?? ""}
           onChange={(event) =>
             table.getColumn(searchKey)?.setFilterValue(event.target.value)
           }
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
+            <Button variant="outline" className="w-full sm:w-auto sm:ml-auto">
               Coloane <ChevronDown className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -127,9 +126,8 @@ export function DataTable({
               })}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
-      <div className="rounded-md border">
-        <Table>
+      </div>      <div className="rounded-md border overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <Table className="min-w-[600px]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -177,8 +175,7 @@ export function DataTable({
             )}
           </TableBody>
         </Table>
-      </div>
-      <div className="flex items-center justify-between space-x-2 py-4">
+      </div>      <div className="flex flex-col sm:flex-row items-center justify-between space-y-2 sm:space-y-0 sm:space-x-2 py-4">
         <div className="flex items-center space-x-2">
           <p className="text-sm font-medium">Rânduri pe pagină</p>
           <Select
@@ -199,15 +196,15 @@ export function DataTable({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center space-x-6 lg:space-x-8">
-          <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+        <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-6 lg:space-x-8">
+          <div className="flex items-center justify-center text-sm font-medium text-center">
             Pagina {table.getState().pagination.pageIndex + 1} din{" "}
             {table.getPageCount()}
           </div>
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
-              className="hidden h-8 w-8 p-0 lg:flex"
+              className="hidden h-8 w-8 p-0 sm:flex"
               onClick={() => table.setPageIndex(0)}
               disabled={!table.getCanPreviousPage()}
             >
@@ -234,7 +231,7 @@ export function DataTable({
             </Button>
             <Button
               variant="outline"
-              className="hidden h-8 w-8 p-0 lg:flex"
+              className="hidden h-8 w-8 p-0 sm:flex"
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
               disabled={!table.getCanNextPage()}
             >

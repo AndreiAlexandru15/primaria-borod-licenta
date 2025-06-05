@@ -27,11 +27,12 @@ export default function RegistruInregistrariPage({ params }) {
   const [exportFormat, setExportFormat] = React.useState("excel")
 
   return (
-    <div>
+         <div className="@container/main flex flex-1 flex-col gap-2">
+
       <header className="sticky top-0 z-10 bg-background border-b">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full px-2 sm:px-4 py-2 gap-4">
           {/* Stânga: breadcrumb */}
-          <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap min-w-1 flex-1">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4 hidden sm:block" />
             <Breadcrumb>
@@ -101,5 +102,6 @@ export default function RegistruInregistrariPage({ params }) {
         />
       </div>
     </div>
+  
   )
 }

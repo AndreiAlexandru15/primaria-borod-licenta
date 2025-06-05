@@ -18,7 +18,7 @@ import { AdaugaDepartamentModal } from "@/components/adauga-departament-modal"
 
 export default function ERegistraturaPage() {
   return (
-    <div>
+    <div className="flex flex-1 flex-col h-full">
       <header className="flex h-16 shrink-0 items-center gap-2 sticky top-0 z-10 bg-background border-b">
         <div className="flex items-center justify-between w-full px-4">
           <div className="flex items-center gap-2">
@@ -41,7 +41,7 @@ export default function ERegistraturaPage() {
           <AdaugaDepartamentModal />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0 overflow-y-auto min-h-0">
         <ListaDepartamente />
       </div>
     </div>
