@@ -48,27 +48,27 @@ function TableSkeleton() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Nume</TableHead>
-          <TableHead>Cod</TableHead>
-          <TableHead>Descriere</TableHead>
-          <TableHead>Înregistrări</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>An</TableHead>
-          <TableHead>Data creării</TableHead>
-          <TableHead className="text-right">Acțiuni</TableHead>
+          <TableHead className="px-2 py-1 text-xs">Nume</TableHead>
+          <TableHead className="px-2 py-1 text-xs">Cod</TableHead>
+          <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Descriere</TableHead>
+          <TableHead className="px-2 py-1 text-xs">Înregistrări</TableHead>
+          <TableHead className="px-2 py-1 text-xs hidden sm:table-cell">Status</TableHead>
+          <TableHead className="px-2 py-1 text-xs hidden md:table-cell">An</TableHead>
+          <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Data creării</TableHead>
+          <TableHead className="px-2 py-1 text-xs text-right">Acțiuni</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {[...Array(5)].map((_, i) => (
           <TableRow key={i}>
-            <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[40px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[40px]" /></TableCell>
-            <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-            <TableCell className="text-right"><Skeleton className="h-8 w-[90px] rounded-md" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs"><Skeleton className="h-4 w-[80px]" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs"><Skeleton className="h-4 w-[40px]" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs hidden md:table-cell"><Skeleton className="h-4 w-[100px]" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs"><Skeleton className="h-4 w-[30px]" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs hidden sm:table-cell"><Skeleton className="h-4 w-[40px]" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs hidden md:table-cell"><Skeleton className="h-4 w-[40px]" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs hidden md:table-cell"><Skeleton className="h-4 w-[60px]" /></TableCell>
+            <TableCell className="px-2 py-1 text-xs text-right"><Skeleton className="h-8 w-[60px] rounded-md" /></TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -162,7 +162,9 @@ export function ListaRegistre({ departmentId }) {
             <Skeleton className="h-6 w-[200px]" />
           </CardHeader>
           <CardContent>
-            <TableSkeleton />
+            <div className="overflow-x-auto">
+              <TableSkeleton />
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -217,54 +219,54 @@ export function ListaRegistre({ departmentId }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nume</TableHead>
-                  <TableHead>Cod</TableHead>
-                  <TableHead>Descriere</TableHead>
-                  <TableHead>Înregistrări</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>An</TableHead>
-                  <TableHead>Data creării</TableHead>
-                  <TableHead className="text-right">Acțiuni</TableHead>
+                  <TableHead className="px-2 py-1 text-xs">Nume</TableHead>
+                  <TableHead className="px-2 py-1 text-xs">Cod</TableHead>
+                  <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Descriere</TableHead>
+                  <TableHead className="px-2 py-1 text-xs">Înregistrări</TableHead>
+                  <TableHead className="px-2 py-1 text-xs hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="px-2 py-1 text-xs hidden md:table-cell">An</TableHead>
+                  <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Data creării</TableHead>
+                  <TableHead className="px-2 py-1 text-xs text-right">Acțiuni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {registre.map((registru) => (
                   <TableRow key={registru.id}>
-                    <TableCell className="font-medium">
+                    <TableCell className="px-2 py-1 text-xs font-medium">
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-blue-600" />
                         {registru.nume}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-2 py-1 text-xs">
                       <Badge variant="outline">
                         {registru.cod || 'N/A'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-[300px] truncate">
+                    <TableCell className="px-2 py-1 text-xs max-w-[120px] truncate hidden md:table-cell">
                       {registru.descriere || '-'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-2 py-1 text-xs">
                       <div className="flex items-center gap-1">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         {registru._count?.inregistrari || 0}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-2 py-1 text-xs hidden sm:table-cell">
                       <Badge variant={registru.activ ? "default" : "secondary"}>
                         {registru.activ ? 'Activ' : 'Inactiv'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-2 py-1 text-xs hidden md:table-cell">
                       {registru.an}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <TableCell className="px-2 py-1 text-xs hidden md:table-cell">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-4 w-4" />
                         {new Date(registru.createdAt).toLocaleDateString('ro-RO')}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="px-2 py-1 text-xs text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button 
                           size="sm" 

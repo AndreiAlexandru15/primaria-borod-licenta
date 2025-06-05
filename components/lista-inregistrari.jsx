@@ -485,6 +485,15 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
 
   return (
     <div className="space-y-6 mt-6">
+      {/* Header responsive cu titlu și acțiuni */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
+        
+        {headerAction && (
+          <div className="flex flex-wrap gap-2 justify-end mt-2 sm:mt-0">
+            {headerAction}
+          </div>
+        )}
+      </div>
       {/* DataTable pentru înregistrări */}
       {tableData.length === 0 ? (
         <Card>
@@ -513,9 +522,6 @@ export const ListaInregistrari = forwardRef(function ListaInregistrari({ departm
         </Card>
       ) : (
         <div>
-          {headerAction && (
-            <div className="flex justify-end mb-2">{headerAction}</div>
-          )}
           <DataTable 
             data={tableData} 
             columns={columns}

@@ -74,15 +74,6 @@ export default function RegistruInregistrariPage({ params }) {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-          </div>
-        </div>
-      </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <ListaInregistrari 
-          ref={listaRef} 
-          departmentId={departmentId} 
-          registerId={registerId}
-          headerAction={
             <AdaugaInregistrareModal 
               departamentId={departmentId} 
               registruId={registerId} 
@@ -93,7 +84,14 @@ export default function RegistruInregistrariPage({ params }) {
                 </Button>
               }
             />
-          }
+          </div>
+        </div>
+      </header>
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <ListaInregistrari 
+          ref={listaRef} 
+          departmentId={departmentId} 
+          registerId={registerId}
         />
       </div>
     </div>
