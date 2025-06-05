@@ -454,3 +454,11 @@ model ConfidentialitateDocument {
 
   @@map("confidentialitati_documente")
 }
+
+// N8N Chat Histories
+model n8n_chat_histories {
+  id         Int      @id @default(autoincrement())
+  sessionId  String   @map("session_id")
+  message    Json     @db.JsonB
+  @@map("n8n_chat_histories")
+}

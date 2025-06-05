@@ -431,15 +431,16 @@ export function EditeazaInregistrareModal({
       setIsInitialized(true)
     }
   }, [isOpen, inregistrare, tipuriDocumente, formData.tipDocumentId])
-  
-  // Actualizează categoria fișierului existent DOAR când utilizatorul schimbă manual tipul de document
+    // Actualizează categoria fișierului existent DOAR când utilizatorul schimbă manual tipul de document
   useEffect(() => {
     if (
       isInitialized && // Doar după inițializare
       formData.tipDocumentId && 
       tipuriDocumente.length > 0 && 
       inregistrare?.fisiere?.[0]?.id &&
-      !file // Nu actualizează dacă există un fișier nou încărcat
+      !file && // Nu actualizează dacă există un fișier nou încărcat
+      !fisierVechiSters && // Nu actualizează dacă fișierul a fost marcat pentru ștergere
+      formData.fisierAtas === inregistrare.fisiere[0].id // Doar dacă fișierul original este încă activ
     ) {
       const tipDocumentSelectat = tipuriDocumente.find(tip => tip.id === formData.tipDocumentId)
       console.log('Document type manually changed, updating existing file category:', tipDocumentSelectat)
@@ -460,7 +461,7 @@ export function EditeazaInregistrareModal({
         }
       }
     }
-  }, [isInitialized, formData.tipDocumentId, tipuriDocumente, inregistrare?.fisiere, file, departamentId])
+  }, [isInitialized, formData.tipDocumentId, tipuriDocumente, inregistrare?.fisiere, file, departamentId, fisierVechiSters, formData.fisierAtas])
 
   // Verifică dacă tipul de document este valid
   const isTipDocumentValid = formData.tipDocumentId && formData.tipDocumentId !== ''

@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { unlink } from 'fs/promises'
+import { unlink, rename } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { AUDIT_ACTIONS, createAuditLogFromRequest } from '@/lib/audit'
@@ -16,6 +16,61 @@ function serializeBigInt(obj) {
   return JSON.parse(JSON.stringify(obj, (key, value) =>
     typeof value === 'bigint' ? value.toString() : value
   ))
+}
+
+// Helper function to build file path
+function buildFilePath(caleRelativa, numeFisierDisk) {
+  const basePath = process.env.FILES_PATH || './storage/files'
+  if (!caleRelativa || caleRelativa === '') {
+    return join(basePath, numeFisierDisk)
+  }
+  return join(basePath, caleRelativa, numeFisierDisk)
+}
+
+// Helper function to rename files based on registration number (for file replacement)
+async function renameFisiereForInregistrare(inregistrareId, numarInregistrare) {
+  try {
+    const fisiere = await prisma.fisier.findMany({
+      where: { inregistrareId },
+      select: {
+        id: true,
+        numeOriginal: true,
+        numeFisierDisk: true,
+        caleRelativa: true,
+        extensie: true
+      }
+    })
+
+    for (const fisier of fisiere) {
+      const oldPath = buildFilePath(fisier.caleRelativa, fisier.numeFisierDisk)
+      
+      if (existsSync(oldPath)) {
+        // Creează noul nume: "Nr. Înregistrare_numeOriginal"
+        const extensie = fisier.extensie ? `.${fisier.extensie}` : ''
+        const numeOriginalFaraExtensie = fisier.numeOriginal.replace(new RegExp(`\\.${fisier.extensie}$`, 'i'), '')
+        const numeNou = `${numarInregistrare}_${numeOriginalFaraExtensie}${extensie}`
+        
+        // Calculează noua cale completă
+        const newPath = buildFilePath(fisier.caleRelativa, numeNou)
+
+        // Redenumește fișierul pe disk
+        await rename(oldPath, newPath)
+
+        // Actualizează baza de date - doar numeFisierDisk se schimbă
+        await prisma.fisier.update({
+          where: { id: fisier.id },
+          data: {
+            numeFisierDisk: numeNou
+          }
+        })
+        
+        console.log(`Fișier redenumit: ${fisier.numeFisierDisk} -> ${numeNou}`)
+      }
+    }
+  } catch (error) {
+    console.error('Eroare la redenumirea fișierelor:', error)
+    // Nu aruncăm eroare pentru a nu afecta actualizarea înregistrării
+  }
 }
 
 // Helper function pentru a obține utilizatorul din token
@@ -192,10 +247,8 @@ export async function PUT(request, { params }) {
         numeOriginal: f.numeOriginal,
         dataFisier: f.dataFisier
       }))
-    }
-
-    // Actualizează în tranzacție
-    const result = await prisma.$transaction(async (tx) => {
+    }    // Actualizează în tranzacție
+    let result = await prisma.$transaction(async (tx) => {
       // Actualizează înregistrarea
       const inregistrare = await tx.inregistrare.update({
         where: { id },
@@ -211,16 +264,40 @@ export async function PUT(request, { params }) {
           numarDocument: numarDocument !== undefined ? numarDocument : inregistrareExistenta.numarDocument,
           tipDocumentId: tipDocumentId !== undefined ? tipDocumentId : inregistrareExistenta.tipDocumentId
         }
-      })
-
-      // Actualizează data documentului în fișierul asociat
+      })      // Actualizează data documentului în fișierul asociat
       if (fisierAtas && dataDocument) {
-        await tx.fisier.update({
-          where: { id: fisierAtas },
-          data: {
-            dataFisier: new Date(dataDocument)
-          }
+        // Verifică mai întâi dacă fișierul există
+        const fisierExistent = await tx.fisier.findUnique({
+          where: { id: fisierAtas }
         })
+        
+        if (fisierExistent) {
+          await tx.fisier.update({
+            where: { id: fisierAtas },
+            data: {
+              dataFisier: new Date(dataDocument),
+              inregistrareId: id // Asociază fișierul cu înregistrarea
+            }
+          })
+        } else {
+          console.warn(`Fișierul cu ID ${fisierAtas} nu există în baza de date`)
+        }
+      } else if (fisierAtas) {
+        // Doar asociază fișierul cu înregistrarea dacă nu există dataDocument
+        const fisierExistent = await tx.fisier.findUnique({
+          where: { id: fisierAtas }
+        })
+        
+        if (fisierExistent) {
+          await tx.fisier.update({
+            where: { id: fisierAtas },
+            data: {
+              inregistrareId: id
+            }
+          })
+        } else {
+          console.warn(`Fișierul cu ID ${fisierAtas} nu există în baza de date`)
+        }
       }
 
       // Șterge fișierul vechi dacă a fost înlocuit
@@ -269,9 +346,7 @@ export async function PUT(request, { params }) {
         await tx.inregistrareDocument.createMany({
           data: inregistrareDocumente
         })
-      }
-
-      // Returnează înregistrarea actualizată
+      }      // Returnează înregistrarea actualizată
       return await tx.inregistrare.findUnique({
         where: { id },
         include: {
@@ -287,6 +362,32 @@ export async function PUT(request, { params }) {
         }
       })
     })
+
+    // Redenumește fișierele cu numărul de înregistrare dacă s-au adăugat fișiere noi
+    if (fisierAtas && (fisierVechiId !== fisierAtas)) {
+      console.log('Redenumind fișierele cu numărul de înregistrare:', result.numarInregistrare)
+      await renameFisiereForInregistrare(result.id, result.numarInregistrare)
+      
+      // Reîncarcă înregistrarea pentru a obține numele actualizate ale fișierelor
+      const updatedResult = await prisma.inregistrare.findUnique({
+        where: { id },
+        include: {
+          fisiere: true,
+          confidentialitate: true,
+          destinatarUtilizator: true,
+          tipDocument: true,
+          registru: {
+            include: {
+              departament: true
+            }
+          }
+        }
+      })
+      
+      if (updatedResult) {
+        result = updatedResult
+      }
+    }
 
     // Salvare date noi pentru audit
     const newData = {

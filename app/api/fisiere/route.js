@@ -23,7 +23,7 @@ function serializeBigInt(obj) {
 // Helper function pentru a obține ID-ul utilizatorului din token
 async function getUserIdFromToken(request) {
   try {
-    const headersList = headers()
+    const headersList = await headers()
     const userId = headersList.get('x-user-id')
     
     // Dacă avem deja user ID din header, îl folosim
