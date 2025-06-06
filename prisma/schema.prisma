@@ -247,14 +247,14 @@ model Inregistrare {
   numarDocument      String?            @map("numar_document")
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
-  // Relații
+  
   registru    Registru     @relation(fields: [registruId], references: [id])
   tipDocument TipDocument? @relation(fields: [tipDocumentId], references: [id])
   fisiere     Fisier[]
   confidentialitate ConfidentialitateDocument? @relation(fields: [confidentialitateId], references: [id])
   destinatarUtilizator Utilizator? @relation("DestinatarInregistrare", fields: [destinatarId], references: [id])
   auditLog    AuditLog[]
-
+  wp_intresare_link String? @map("wp_intrare_link") 
   @@unique([registruId, numarInregistrare, dataInregistrare], name: "unique_registration")
   @@map("inregistrari")
 }
@@ -314,6 +314,7 @@ model Fisier {
   metadate  Json?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  wp_fisier_link String? @map("wp_fisier_link") 
   // Relații
   inregistrare Inregistrare?      @relation(fields: [inregistrareId], references: [id], onDelete: Cascade)
   categorie    CategorieDocument? @relation(fields: [categorieId], references: [id])
