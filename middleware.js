@@ -18,7 +18,12 @@ const PROTECTED_API_ROUTES = ['/api/utilizatori', '/api/documente', '/api/depart
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl
-  
+
+  // Blochează accesul la pagina principală '/'
+  if (pathname === '/') {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
   // Verifică dacă este rută publică
   if (PUBLIC_ROUTES.includes(pathname)) {
     return NextResponse.next()

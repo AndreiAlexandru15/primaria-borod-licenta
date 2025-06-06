@@ -59,14 +59,14 @@ export function LoginForm({
 
   return (
     (<div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0 max-w-xl w-full mx-auto shadow-2xl scale-110 md:scale-125">
         <CardContent className="grid p-0 md:grid-cols-2">
-          <form className="p-6 md:p-8" onSubmit={handleSubmit}>
+          <form className="p-8 md:p-12" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col items-center text-center">
-                <h1 className="text-2xl font-bold">Bine ai revenit</h1>
+                <h1 className="text-4xl font-extrabold">Bine ai revenit</h1>
                 <p className="text-muted-foreground text-balance">
-                  Autentificare în contul E-Registratură
+                  Autentificare în contul E-Registratura
                 </p>
               </div>
               
@@ -102,13 +102,13 @@ export function LoginForm({
               </Button>
 
               <div className="text-center text-sm">
-                © 2025 E-Registratură
+                © 2025 E-Registratura
               </div>
             </div>
           </form>
           <div className="bg-muted relative hidden md:block">
             <img
-              src="https://centenarulromaniei.ro/wp-content/uploads/2018/01/Stema-Romaniei.jpg"
+              src="/logo.png"
               alt="Image"
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale" />
           </div>
