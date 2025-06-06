@@ -2,6 +2,9 @@
 
 import { FolderOpen, MoreHorizontal, FileText, Users, Settings, BookOpen } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { AdaugaInregistrareModal } from "@/components/adauga-inregistrare-modal";
 
 import {
   DropdownMenu,
@@ -25,6 +28,35 @@ export function NavProjects({
   isLoading = false
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
+  const [selectedRegistru, setSelectedRegistru] = useState(null)
+  const [showDocumentModal, setShowDocumentModal] = useState(false)
+  // Handler pentru "Vezi Înregistrările" (Vezi Registre)
+  const handleVeziInregistrari = (registru) => {
+    // Navighează la pagina cu înregistrările registrului
+    const departmentId = registru.departamentId || registru.department_id
+    if (!departmentId) {
+      console.error('Department ID not found for register:', registru)
+      return
+    }
+    router.push(`/dashboard/e-registratura/${departmentId}/${registru.id}`)
+  }
+
+  // Handler pentru "Document Nou"
+  const handleDocumentNou = (registru) => {
+    setSelectedRegistru(registru)
+    setShowDocumentModal(true)
+  }
+  // Handler pentru "Vezi Departamentul"
+  const handleVeziDepartamentul = (registru) => {
+    // Navighează la pagina departamentului
+    const departmentId = registru.departamentId || registru.department_id
+    if (!departmentId) {
+      console.error('Department ID not found for register:', registru)
+      return
+    }
+    router.push(`/dashboard/e-registratura/${departmentId}`)
+  }
 
   if (isLoading) {
     return (
@@ -67,20 +99,19 @@ export function NavProjects({
                   <MoreHorizontal />
                   <span className="sr-only">Opțiuni</span>
                 </SidebarMenuAction>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
+              </DropdownMenuTrigger>              <DropdownMenuContent
                 className="w-48"
                 side={isMobile ? "bottom" : "right"}
                 align={isMobile ? "end" : "start"}>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleVeziInregistrari(item)}>
                   <BookOpen className="text-muted-foreground" />
                   <span>Vezi Înregistrările</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDocumentNou(item)}>
                   <FileText className="text-muted-foreground" />
                   <span>Document Nou</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleVeziDepartamentul(item)}>
                   <Users className="text-muted-foreground" />
                   <span>Vezi Departamentul</span>
                 </DropdownMenuItem>
@@ -106,9 +137,19 @@ export function NavProjects({
             <div className="px-2 py-4 text-center text-sm text-muted-foreground">
               Nu există registre disponibile
             </div>
-          </SidebarMenuItem>
-        )}
+          </SidebarMenuItem>        )}
       </SidebarMenu>
+      
+      {/* Modal pentru adăugarea de documente noi */}
+      {selectedRegistru && (
+        <AdaugaInregistrareModal 
+          departamentId={selectedRegistru.departamentId || selectedRegistru.department_id}
+          registruId={selectedRegistru.id}
+          isOpen={showDocumentModal}
+          onOpenChange={setShowDocumentModal}
+          trigger={null} // Nu afișa trigger-ul default
+        />
+      )}
     </SidebarGroup>)
   );
 }

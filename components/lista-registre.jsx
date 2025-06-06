@@ -48,27 +48,27 @@ function TableSkeleton() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="px-2 py-1 text-xs">Nume</TableHead>
-          <TableHead className="px-2 py-1 text-xs">Cod</TableHead>
-          <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Descriere</TableHead>
-          <TableHead className="px-2 py-1 text-xs">Înregistrări</TableHead>
-          <TableHead className="px-2 py-1 text-xs hidden sm:table-cell">Status</TableHead>
-          <TableHead className="px-2 py-1 text-xs hidden md:table-cell">An</TableHead>
-          <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Data creării</TableHead>
-          <TableHead className="px-2 py-1 text-xs text-right">Acțiuni</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium">Nume</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium">Cod</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium hidden md:table-cell">Descriere</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium">Înregistrări</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium hidden sm:table-cell">Status</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium hidden md:table-cell">An</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium hidden md:table-cell">Data creării</TableHead>
+          <TableHead className="px-4 py-3 text-sm font-medium text-right">Acțiuni</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {[...Array(5)].map((_, i) => (
           <TableRow key={i}>
-            <TableCell className="px-2 py-1 text-xs"><Skeleton className="h-4 w-[80px]" /></TableCell>
-            <TableCell className="px-2 py-1 text-xs"><Skeleton className="h-4 w-[40px]" /></TableCell>
-            <TableCell className="px-2 py-1 text-xs hidden md:table-cell"><Skeleton className="h-4 w-[100px]" /></TableCell>
-            <TableCell className="px-2 py-1 text-xs"><Skeleton className="h-4 w-[30px]" /></TableCell>
-            <TableCell className="px-2 py-1 text-xs hidden sm:table-cell"><Skeleton className="h-4 w-[40px]" /></TableCell>
-            <TableCell className="px-2 py-1 text-xs hidden md:table-cell"><Skeleton className="h-4 w-[40px]" /></TableCell>
-            <TableCell className="px-2 py-1 text-xs hidden md:table-cell"><Skeleton className="h-4 w-[60px]" /></TableCell>
-            <TableCell className="px-2 py-1 text-xs text-right"><Skeleton className="h-8 w-[60px] rounded-md" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm"><Skeleton className="h-5 w-[100px]" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm"><Skeleton className="h-5 w-[60px]" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm hidden md:table-cell"><Skeleton className="h-5 w-[120px]" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm"><Skeleton className="h-5 w-[50px]" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm hidden sm:table-cell"><Skeleton className="h-5 w-[60px]" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm hidden md:table-cell"><Skeleton className="h-5 w-[50px]" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm hidden md:table-cell"><Skeleton className="h-5 w-[80px]" /></TableCell>
+            <TableCell className="px-4 py-3 text-sm text-right"><Skeleton className="h-9 w-[100px] rounded-md" /></TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -214,59 +214,58 @@ export function ListaRegistre({ departmentId }) {
             <CardDescription>
               Lista tuturor registrelor din departament
             </CardDescription>
-          </CardHeader>
-          <CardContent>
+          </CardHeader>          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-2 py-1 text-xs">Nume</TableHead>
-                  <TableHead className="px-2 py-1 text-xs">Cod</TableHead>
-                  <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Descriere</TableHead>
-                  <TableHead className="px-2 py-1 text-xs">Înregistrări</TableHead>
-                  <TableHead className="px-2 py-1 text-xs hidden sm:table-cell">Status</TableHead>
-                  <TableHead className="px-2 py-1 text-xs hidden md:table-cell">An</TableHead>
-                  <TableHead className="px-2 py-1 text-xs hidden md:table-cell">Data creării</TableHead>
-                  <TableHead className="px-2 py-1 text-xs text-right">Acțiuni</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium">Nume</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium">Cod</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium hidden md:table-cell">Descriere</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium">Înregistrări</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium hidden md:table-cell">An</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium hidden md:table-cell">Data creării</TableHead>
+                  <TableHead className="px-4 py-3 text-sm font-medium text-right">Acțiuni</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {registre.map((registru) => (
                   <TableRow key={registru.id}>
-                    <TableCell className="px-2 py-1 text-xs font-medium">
+                    <TableCell className="px-4 py-3 text-sm font-medium">
                       <div className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-blue-600" />
+                        <BookOpen className="h-5 w-5 text-blue-600" />
                         {registru.nume}
                       </div>
                     </TableCell>
-                    <TableCell className="px-2 py-1 text-xs">
+                    <TableCell className="px-4 py-3 text-sm">
                       <Badge variant="outline">
                         {registru.cod || 'N/A'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-2 py-1 text-xs max-w-[120px] truncate hidden md:table-cell">
+                    <TableCell className="px-4 py-3 text-sm max-w-[150px] truncate hidden md:table-cell">
                       {registru.descriere || '-'}
                     </TableCell>
-                    <TableCell className="px-2 py-1 text-xs">
-                      <div className="flex items-center gap-1">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
+                    <TableCell className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-muted-foreground" />
                         {registru._count?.inregistrari || 0}
                       </div>
                     </TableCell>
-                    <TableCell className="px-2 py-1 text-xs hidden sm:table-cell">
+                    <TableCell className="px-4 py-3 text-sm hidden sm:table-cell">
                       <Badge variant={registru.activ ? "default" : "secondary"}>
                         {registru.activ ? 'Activ' : 'Inactiv'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-2 py-1 text-xs hidden md:table-cell">
+                    <TableCell className="px-4 py-3 text-sm hidden md:table-cell">
                       {registru.an}
                     </TableCell>
-                    <TableCell className="px-2 py-1 text-xs hidden md:table-cell">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
+                    <TableCell className="px-4 py-3 text-sm hidden md:table-cell">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-5 w-5" />
                         {new Date(registru.createdAt).toLocaleDateString('ro-RO')}
                       </div>
                     </TableCell>
-                    <TableCell className="px-2 py-1 text-xs text-right">
+                    <TableCell className="px-4 py-3 text-sm text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button 
                           size="sm" 

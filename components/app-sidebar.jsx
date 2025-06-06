@@ -129,8 +129,7 @@ export function AppSidebar({
   ...props
 }) {
   const { data: registers = [], isLoading: isLoadingRegisters } = useRegisters();
-  const { user, loading } = useCurrentUser();
-  // Transform registers data for NavProjects component
+  const { user, loading } = useCurrentUser();  // Transform registers data for NavProjects component
   const registersForNavigation = registers.map(register => ({
     id: register.id,
     name: register.nume,
@@ -138,6 +137,7 @@ export function AppSidebar({
     icon: BookOpen,
     description: register.descriere,
     department: register.departament.cod, // show code instead of name
+    departamentId: register.departament.id, // Add department ID for navigation handlers
     count: register._count?.inregistrari || 0
   }))
 
